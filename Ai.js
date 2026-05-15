@@ -1,183 +1,69 @@
-// ============================================================
-// IMPORTS ET CONFIGURATION
-// ============================================================
-require("dotenv").config();
-const express = require("express");
-const bodyParser = require("body-parser");
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-const app = express();
-app.use(bodyParser.json());
-import cors from 'cors';
-app.use(cors());
-// ============================================================
-// CONFIGURATION SHOPIFY
-// ============================================================
-const SHOPIFY_DOMAIN = process.env.SHOPIFY_DOMAIN;       // barracudaspas.myshopify.com
-const SHOPIFY_TOKEN  = process.env.SHOPIFY_TOKEN;        // shpat_...
+// Ai.js - Node.js ES Modules prêt pour Railway
+import express from "express";
+import cors from "cors";
+import fetch from "node-fetch";
+import dotenv from "dotenv";
 
-async function shopifyRequest(query) {
-  const response = await fetch(`https://${SHOPIFY_DOMAIN}/admin/api/2024-01/graphql.json`, {
-    method: "POST",
+dotenv.config();
+
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Variables d'environnement
+const PORT = process.env.PORT || 8080;
+const SHOPIFY_DOMAIN = process.env.SHOPIFY_DOMAIN;
+const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN;
+
+// Helper pour faire une requête Shopify
+async function fetchShopify(endpoint, query = "") {
+  const url = `https://${SHOPIFY_DOMAIN}/admin/api/2023-04/${endpoint}.json${query}`;
+  const res = await fetch(url, {
+    method: "GET",
     headers: {
       "Content-Type": "application/json",
       "X-Shopify-Access-Token": SHOPIFY_TOKEN,
     },
-    body: JSON.stringify({ query }),
   });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Shopify API error: ${response.status} - ${text}`);
-  }
-
-  return response.json();
+  return res.json();
 }
 
-// ============================================================
-// ROUTE — RECHERCHE DE PRODUITS
-// ============================================================
-app.post("/shopify/products", async (req, res) => {
-  const query = req.body?.message?.toolCalls?.[0]?.function?.arguments?.query || "";
-  console.log("Recherche produit:", query);
+// ====================================
+// ROUTES SHOPIFY
+// ====================================
 
-  try {
-    const data = await shopifyRequest(`
-      {
-        products(first: 5, query: "${query}") {
-          edges {
-            node {
-              title
-              totalInventory
-              variants(first: 5) {
-                edges {
-                  node {
-                    title
-                    price
-                    inventoryQuantity
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `);
-
-    const products = data?.data?.products?.edges || [];
-
-    const result = products.length === 0
-      ? { found: false, message: "Aucun produit trouvé pour cette recherche." }
-      : {
-          found: true,
-          products: products.map(({ node }) => ({
-            title: node.title,
-            totalStock: node.totalInventory,
-            variants: node.variants.edges.map(({ node: v }) => ({
-              format: v.title !== "Default Title" ? v.title : null,
-              price: `${v.price} CAD`,
-              stock: v.inventoryQuantity,
-            })),
-          })),
-        };
-
-    res.json({
-      results: [{ toolCallId: req.body?.message?.toolCalls?.[0]?.id, result: JSON.stringify(result) }]
-    });
-
-  } catch (error) {
-    console.error("Erreur produits:", error);
-    res.json({
-      results: [{ toolCallId: req.body?.message?.toolCalls?.[0]?.id, result: JSON.stringify({ error: error.message }) }]
-    });
-  }
-});
-
-// ============================================================
-// ROUTE — RECHERCHE DE COMMANDES
-// ============================================================
+// Route pour récupérer les commandes
 app.post("/shopify/orders", async (req, res) => {
-  const query = req.body?.message?.toolCalls?.[0]?.function?.arguments?.query || "";
-  console.log("Recherche commande:", query);
-
   try {
-    const data = await shopifyRequest(`
-      {
-        orders(first: 3, query: "name:${query}") {
-          edges {
-            node {
-              name
-              displayFinancialStatus
-              displayFulfillmentStatus
-              createdAt
-              totalPriceSet {
-                shopMoney {
-                  amount
-                  currencyCode
-                }
-              }
-              customer {
-                firstName
-                lastName
-                email
-              }
-              fulfillments {
-                trackingInfo {
-                  company
-                  number
-                  url
-                }
-              }
-            }
-          }
-        }
-      }
-    `);
-
-    const orders = data?.data?.orders?.edges || [];
-
-    const result = orders.length === 0
-      ? { found: false, message: "Aucune commande trouvée avec ce numéro." }
-      : {
-          found: true,
-          orders: orders.map(({ node }) => ({
-            orderNumber: node.name,
-            customer: node.customer ? `${node.customer.firstName} ${node.customer.lastName}` : null,
-            email: node.customer?.email,
-            paymentStatus: node.displayFinancialStatus,
-            fulfillmentStatus: node.displayFulfillmentStatus,
-            createdAt: node.createdAt,
-            total: `${node.totalPriceSet.shopMoney.amount} ${node.totalPriceSet.shopMoney.currencyCode}`,
-            tracking: node.fulfillments.flatMap(f =>
-              f.trackingInfo.map(t => ({
-                company: t.company,
-                number: t.number,
-                url: t.url,
-              }))
-            ),
-          })),
-        };
-
-    res.json({
-      results: [{ toolCallId: req.body?.message?.toolCalls?.[0]?.id, result: JSON.stringify(result) }]
-    });
-
+    const query = req.body?.message?.toolCalls?.[0]?.function?.arguments?.query || "";
+    const data = await fetchShopify("orders", `?name=${query}`);
+    res.json({ found: true, orders: data.orders || [] });
   } catch (error) {
-    console.error("Erreur Shopify:", error);
-    res.json({
-      results: [{ toolCallId: req.body?.message?.toolCalls?.[0]?.id, result: JSON.stringify({ error: error.message }) }]
-    });
+    console.error("Erreur Shopify Orders:", error);
+    res.json({ found: false, error: "Erreur lors de la récupération des commandes." });
   }
 });
 
-// ============================================================
-// ROUTE GET TEMPORAIRE POUR TEST
-// ============================================================
-app.get("/shopify/orders", (req, res) => {
-  res.send("Le serveur fonctionne ! Mais utilisez POST pour récupérer les commandes Shopify.");
+// Route pour récupérer les produits
+app.post("/shopify/products", async (req, res) => {
+  try {
+    const query = req.body?.message?.toolCalls?.[0]?.function?.arguments?.query || "";
+    const data = await fetchShopify("products", `?title=${query}`);
+    res.json({ found: true, products: data.products || [] });
+  } catch (error) {
+    console.error("Erreur Shopify Products:", error);
+    res.json({ found: false, error: "Erreur lors de la récupération des produits." });
+  }
 });
 
-// ============================================================
-// LANCEMENT DU SERVEUR
-// ============================================================
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Serveur lancé sur le port ${PORT}`));
+// Test GET simple pour vérifier si le serveur fonctionne
+app.get("/", (req, res) => {
+  res.send("Serveur en ligne. Utilisez POST /shopify/orders ou /shopify/products");
+});
+
+// Lancement du serveur
+app.listen(PORT, () => {
+  console.log(`Serveur lancé sur le port ${PORT}`);
+});

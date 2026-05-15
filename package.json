@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Serveur Node.js pour récupérer commandes et produits Shopify via VAPI",
   "main": "Ai.js",
+  "type": "module",
   "scripts": {
     "start": "node Ai.js"
   },

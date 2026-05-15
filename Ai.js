@@ -7,7 +7,8 @@ const bodyParser = require("body-parser");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const app = express();
 app.use(bodyParser.json());
-
+import cors from 'cors';
+app.use(cors());
 // ============================================================
 // CONFIGURATION SHOPIFY
 // ============================================================

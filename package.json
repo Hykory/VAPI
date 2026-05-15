@@ -1,4 +1,10 @@
 {
+  "name": "VAPI",
+  "version": "1.0.0",
+  "main": "Ai.js",
+  "scripts": {
+    "start": "node Ai.js"
+  },
   "dependencies": {
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

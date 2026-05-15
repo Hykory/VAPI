@@ -1,6 +1,7 @@
 {
   "name": "VAPI",
   "version": "1.0.0",
+  "description": "Serveur Node.js pour récupérer commandes et produits Shopify via VAPI",
   "main": "Ai.js",
   "scripts": {
     "start": "node Ai.js"
@@ -9,5 +10,8 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

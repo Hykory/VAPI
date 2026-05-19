@@ -254,6 +254,23 @@ app.post("/shopify/products", async (req, res) => {
       "pièce",
     ];
 
+    function formatPriceForVoice(price) {
+      const priceNumber = Number(price);
+
+      if (Number.isNaN(priceNumber)) {
+        return `${price} dollars`;
+      }
+
+      const dollars = Math.floor(priceNumber);
+      const cents = Math.round((priceNumber - dollars) * 100);
+
+      if (cents > 0) {
+        return `${dollars} dollars et ${cents} cents`;
+      }
+
+      return `${dollars} dollars`;
+    }
+
     if (wantsPump) {
       products = products.filter(({ node }) => {
         const title = node.title.toLowerCase();
@@ -313,7 +330,9 @@ app.post("/shopify/products", async (req, res) => {
                 ? `, variante ${variant.title}`
                 : "";
 
-            return `${product.title}${variantName} : ${variant.price} CAD, ${variant.stock} en stock.`;
+            const priceText = formatPriceForVoice(variant.price);
+
+            return `${product.title}${variantName} : ${priceText}, ${variant.stock} en stock.`;
           })
           .join(" ");
 

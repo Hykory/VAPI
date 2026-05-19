@@ -181,7 +181,9 @@ app.post("/shopify/products", async (req, res) => {
 
     const data = await fetchShopify(
       "products",
-      `?limit=50&status=active`
+      const data = await fetchShopify(
+  "products",
+  `?limit=250&status=active&title=${encodeURIComponent(query)}`
     );
 
     const products = data.products || [];

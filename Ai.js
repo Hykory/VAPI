@@ -20,7 +20,22 @@ const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN;
 
 // Helper Shopify REST
 async function fetchShopify(endpoint, query = "") {
-  const url = `https://${SHOPIFY_DOMAIN}/admin/api/2023-04/${endpoint}.json${query}`;
+
+  const url = `https://${SHOPIFY_DOMAIN}/admin/api/2024-10/${endpoint}.json${query}`;
+
+  console.log("SHOPIFY_DOMAIN:", SHOPIFY_DOMAIN);
+
+  console.log(
+    "SHOPIFY_TOKEN starts with:",
+    SHOPIFY_TOKEN?.slice(0, 6)
+  );
+
+  console.log(
+    "SHOPIFY_TOKEN length:",
+    SHOPIFY_TOKEN?.length
+  );
+
+  console.log("SHOPIFY URL:", url);
 
   const response = await fetch(url, {
     method: "GET",

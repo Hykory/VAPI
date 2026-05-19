@@ -94,7 +94,7 @@ app.post("/shopify/products", async (req, res) => {
         body: JSON.stringify({
           query: `
             query SearchProducts($search: String!) {
-              products(first: 20, query: $search) {
+              products(first: 50, query: $search) {
                 edges {
                   node {
                     title
@@ -108,7 +108,6 @@ app.post("/shopify/products", async (req, res) => {
                           sku
                           price
                           inventoryQuantity
-                          availableForSale
                         }
                       }
                     }
@@ -134,41 +133,46 @@ app.post("/shopify/products", async (req, res) => {
 
     const q = query.toLowerCase();
 
+    const wantsPump =
+      q.includes("pompe") ||
+      q.includes("pump") ||
+      q.includes("1.5") ||
+      q.includes("hp") ||
+      q.includes("helios");
+
     const accessoryWords = [
       "couvert",
       "couvercle",
       "panier",
-      "basket",
       "strainer",
-      "joint",
-      "gasket",
-      "seal",
+      "oring",
       "o-ring",
+      "joint",
+      "drain plug",
+      "plug",
+      "cable",
+      "câble",
+      "filtre",
+      "cartouche",
+      "tuyau",
+      "accessoire",
       "piece",
       "pièce",
-      "accessoire",
-      "cartouche",
-      "filtre",
-      "hose",
-      "tuyau",
     ];
-
-    const wantsPump =
-      q.includes("pompe") ||
-      q.includes("pump") ||
-      q.includes("hp") ||
-      q.includes("hors terre") ||
-      q.includes("above ground");
 
     if (wantsPump) {
       products = products.filter(({ node }) => {
         const title = node.title.toLowerCase();
 
+        const isPump =
+          title.includes("pompe") ||
+          title.includes("pump");
+
         const isAccessory = accessoryWords.some((word) =>
           title.includes(word)
         );
 
-        return !isAccessory;
+        return isPump && !isAccessory;
       });
     }
 
@@ -191,7 +195,7 @@ app.post("/shopify/products", async (req, res) => {
             const stock = variant.inventoryQuantity ?? 0;
 
             const stockText =
-              stock > 0 || variant.availableForSale
+              stock > 0
                 ? `En stock (${stock} disponible${stock > 1 ? "s" : ""})`
                 : "Pas en stock actuellement";
 

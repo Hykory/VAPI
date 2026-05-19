@@ -72,6 +72,101 @@ function getVapiToolCall(req) {
 // ====================================
 // ROUTES SHOPIFY
 // ====================================
+// Route pour récupérer les commandes
+app.post("/shopify/orders", async (req, res) => {
+  console.log("BODY VAPI ORDERS:");
+  console.dir(req.body, { depth: null });
+
+  try {
+    const { toolCall, args } = getVapiToolCall(req);
+
+    const rawQuery = args.query || "";
+    const orderNumber = rawQuery.startsWith("#") ? rawQuery : `#${rawQuery}`;
+
+    console.log("Recherche commande:", orderNumber);
+
+    const data = await fetchShopify(
+      "orders",
+      `?status=any&name=${encodeURIComponent(orderNumber)}`
+    );
+
+    const orders = data.orders || [];
+
+    if (orders.length === 0) {
+      return res.json({
+        results: [
+          {
+            toolCallId: toolCall.id,
+            result: `Aucune commande trouvée avec le numéro ${orderNumber}.`,
+          },
+        ],
+      });
+    }
+
+    const order = orders[0];
+
+    const trackingNumbers = order.fulfillments?.flatMap((fulfillment) =>
+      fulfillment.tracking_numbers || []
+    ) || [];
+
+    const trackingUrls = order.fulfillments?.flatMap((fulfillment) =>
+      fulfillment.tracking_urls || []
+    ) || [];
+
+    let responseText = `
+Commande ${order.name}
+
+Statut paiement: ${order.financial_status || "N/A"}
+Statut livraison: ${order.fulfillment_status || "Non traitée"}
+
+Total: ${order.total_price} ${order.currency}
+
+Client: ${order.customer?.first_name || ""} ${order.customer?.last_name || ""}
+Email: ${order.email || order.customer?.email || "N/A"}
+`.trim();
+
+    if (trackingNumbers.length > 0 || trackingUrls.length > 0) {
+      responseText += `
+
+Tracking:`;
+
+      trackingNumbers.forEach((number, index) => {
+        responseText += `
+
+Numéro: ${number}
+Lien: ${trackingUrls[index] || "N/A"}`;
+      });
+    } else {
+      responseText += `
+
+Aucun numéro de tracking disponible pour le moment.`;
+    }
+
+    return res.json({
+      results: [
+        {
+          toolCallId: toolCall.id,
+          result: responseText,
+        },
+      ],
+    });
+  } catch (error) {
+    console.error("Erreur Shopify Orders:", error);
+
+    const toolCallId = req.body?.message?.toolCalls?.[0]?.id || "unknown";
+
+    return res.json({
+      results: [
+        {
+          toolCallId,
+          result: `Erreur lors de la récupération de la commande: ${error.message}`,
+        },
+      ],
+    });
+  }
+});
+
+//route pour rechercher des produits
 
 app.post("/shopify/products", async (req, res) => {
   console.log("BODY VAPI PRODUCTS:");

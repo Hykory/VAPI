@@ -86,8 +86,13 @@ function normalizeProductQuery(value = "") {
   return value
     .toLowerCase()
     .replace(/hélios/g, "helios")
+    .replace(/élios/g, "helios")
     .replace(/elios/g, "helios")
+    .replace(/elyos/g, "helios")
+    .replace(/hélios/g, "helios")
     .replace(/heliosse/g, "helios")
+    .replace(/pompes/g, "pompe")
+    .replace(/pump/g, "pompe")
     .replace(/un point cinq/g, "1.5")
     .replace(/un point 5/g, "1.5")
     .replace(/un virgule cinq/g, "1.5")
@@ -98,10 +103,10 @@ function normalizeProductQuery(value = "") {
     .replace(/zéro point cinq/g, "0.5")
     .replace(/zero point cinq/g, "0.5")
     .replace(/filtreur/g, "filtre")
-    .replace(/hors terre/g, "above ground")
-    .replace(/pompe piscine/g, "pompe")
+    .replace(/hors terre/g, "piscine hors terre")
     .trim();
-}
+};
+
 
 
 // ============================================================
@@ -119,8 +124,7 @@ function formatPriceForVoice(price) {
   const cents = Math.round((priceNumber - dollars) * 100);
 
   if (cents > 0) {
-    return `${dollars} dollars et ${cents} cents`;
-  }
+return `${dollars} dollars`;  }
 
   return `${dollars} dollars`;
 }
@@ -277,7 +281,9 @@ app.post("/shopify/products", async (req, res) => {
             }
           `,
           variables: {
-            search: query,
+            variables: {
+  search: query.includes("helios") ? "pompe OR helios OR hélios" : query,
+},
           },
         }),
       }

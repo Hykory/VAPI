@@ -225,7 +225,6 @@ app.post("/shopify/products", async (req, res) => {
     }
 
     let products = data?.data?.products?.edges || [];
-
     const q = query.toLowerCase();
 
     const wantsPump =
@@ -271,48 +270,56 @@ app.post("/shopify/products", async (req, res) => {
       });
     }
 
-    if (products.length === 0) {
+    const availableProducts = products
+      .map(({ node: product }) => {
+        const availableVariants = product.variants.edges
+          .map(({ node: variant }) => {
+            const stock = variant.inventoryQuantity ?? 0;
+
+            return {
+              title: variant.title || "Standard",
+              price: variant.price,
+              stock,
+            };
+          })
+          .filter((variant) => variant.stock > 0);
+
+        return {
+          title: product.title,
+          variants: availableVariants,
+        };
+      })
+      .filter((product) => product.variants.length > 0);
+
+    if (availableProducts.length === 0) {
       return res.json({
         results: [
           {
             toolCallId: toolCall.id,
-            result: `Je n'ai pas trouvé de pompe complète correspondant exactement à "${query}". Demande au client la marque, le modèle ou la puissance HP avant de conclure que le produit n'est pas disponible.`,
+            result: `Je n'ai trouvé aucun produit en stock correspondant à "${query}". Demande au client plus de détails comme la marque, le modèle, la grandeur ou la puissance.`,
           },
         ],
       });
     }
 
-    const responseText = products
-      .slice(0, 5)
-      .map(({ node: product }) => {
-        const variantsText = product.variants.edges
-          .map(({ node: variant }) => {
-            const stock = variant.inventoryQuantity ?? 0;
+    const responseText = availableProducts
+      .slice(0, 3)
+      .map((product) => {
+        const variantsText = product.variants
+          .slice(0, 3)
+          .map((variant) => {
+            const variantName =
+              variant.title && variant.title !== "Default Title"
+                ? `, variante ${variant.title}`
+                : "";
 
-            const stockText =
-              stock > 0
-                ? `En stock (${stock} disponible${stock > 1 ? "s" : ""})`
-                : "Pas en stock actuellement";
-
-            return `
-- Variante: ${variant.title || "Standard"}
-  Prix: ${variant.price} CAD
-  SKU: ${variant.sku || "N/A"}
-  Stock: ${stockText}
-            `.trim();
+            return `${product.title}${variantName} : ${variant.price} CAD, ${variant.stock} en stock.`;
           })
-          .join("\n");
+          .join(" ");
 
-        return `
-Produit: ${product.title}
-Inventaire total: ${product.totalInventory ?? "N/A"}
-Statut: ${product.status}
-Lien: https://${SHOPIFY_DOMAIN}/products/${product.handle}
-
-${variantsText}
-        `.trim();
+        return variantsText;
       })
-      .join("\n\n");
+      .join(" ");
 
     return res.json({
       results: [

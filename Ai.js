@@ -1,4 +1,5 @@
 // Ai.js - Node.js ES Modules prêt pour Railway
+
 import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
@@ -17,17 +18,40 @@ const PORT = process.env.PORT || 8080;
 const SHOPIFY_DOMAIN = process.env.SHOPIFY_DOMAIN;
 const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN;
 
-// Helper pour faire une requête Shopify
+// Helper Shopify REST
 async function fetchShopify(endpoint, query = "") {
   const url = `https://${SHOPIFY_DOMAIN}/admin/api/2023-04/${endpoint}.json${query}`;
-  const res = await fetch(url, {
+
+  const response = await fetch(url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
       "X-Shopify-Access-Token": SHOPIFY_TOKEN,
     },
   });
-  return res.json();
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Shopify API error ${response.status}: ${text}`);
+  }
+
+  return response.json();
+}
+
+// Helper Vapi
+function getVapiToolCall(req) {
+  const toolCall = req.body?.message?.toolCalls?.[0];
+
+  let args = toolCall?.function?.arguments || {};
+
+  if (typeof args === "string") {
+    args = JSON.parse(args);
+  }
+
+  return {
+    toolCall,
+    args,
+  };
 }
 
 // ====================================
@@ -36,29 +60,164 @@ async function fetchShopify(endpoint, query = "") {
 
 // Route pour récupérer les commandes
 app.post("/shopify/orders", async (req, res) => {
+  console.log("BODY VAPI ORDERS:");
+  console.dir(req.body, { depth: null });
+
   try {
-    const query = req.body?.message?.toolCalls?.[0]?.function?.arguments?.query || "";
-    const data = await fetchShopify("orders", `?name=${query}`);
-    res.json({ found: true, orders: data.orders || [] });
+    const { toolCall, args } = getVapiToolCall(req);
+
+    const rawQuery = args.query || "";
+    const orderNumber = rawQuery.startsWith("#") ? rawQuery : `#${rawQuery}`;
+
+    console.log("Recherche commande:", orderNumber);
+
+    const data = await fetchShopify(
+      "orders",
+      `?status=any&name=${encodeURIComponent(orderNumber)}`
+    );
+
+    const orders = data.orders || [];
+
+    if (orders.length === 0) {
+      return res.json({
+        results: [
+          {
+            toolCallId: toolCall.id,
+            result: `Aucune commande trouvée avec le numéro ${orderNumber}.`,
+          },
+        ],
+      });
+    }
+
+    const order = orders[0];
+
+    const trackingNumbers = order.fulfillments?.flatMap((fulfillment) =>
+      fulfillment.tracking_numbers || []
+    ) || [];
+
+    const trackingUrls = order.fulfillments?.flatMap((fulfillment) =>
+      fulfillment.tracking_urls || []
+    ) || [];
+
+    let responseText = `
+Commande ${order.name}
+
+Statut paiement: ${order.financial_status || "N/A"}
+Statut livraison: ${order.fulfillment_status || "Non traitée"}
+
+Total: ${order.total_price} ${order.currency}
+
+Client: ${order.customer?.first_name || ""} ${order.customer?.last_name || ""}
+Email: ${order.email || order.customer?.email || "N/A"}
+`.trim();
+
+    if (trackingNumbers.length > 0 || trackingUrls.length > 0) {
+      responseText += `
+
+Tracking:`;
+
+      trackingNumbers.forEach((number, index) => {
+        responseText += `
+
+Numéro: ${number}
+Lien: ${trackingUrls[index] || "N/A"}`;
+      });
+    } else {
+      responseText += `
+
+Aucun numéro de tracking disponible pour le moment.`;
+    }
+
+    return res.json({
+      results: [
+        {
+          toolCallId: toolCall.id,
+          result: responseText,
+        },
+      ],
+    });
   } catch (error) {
     console.error("Erreur Shopify Orders:", error);
-    res.json({ found: false, error: "Erreur lors de la récupération des commandes." });
+
+    const toolCallId = req.body?.message?.toolCalls?.[0]?.id || "unknown";
+
+    return res.json({
+      results: [
+        {
+          toolCallId,
+          result: `Erreur lors de la récupération de la commande: ${error.message}`,
+        },
+      ],
+    });
   }
 });
 
 // Route pour récupérer les produits
 app.post("/shopify/products", async (req, res) => {
+  console.log("BODY VAPI PRODUCTS:");
+  console.dir(req.body, { depth: null });
+
   try {
-    const query = req.body?.message?.toolCalls?.[0]?.function?.arguments?.query || "";
-    const data = await fetchShopify("products", `?title=${query}`);
-    res.json({ found: true, products: data.products || [] });
+    const { toolCall, args } = getVapiToolCall(req);
+
+    const query = args.query || "";
+
+    console.log("Recherche produit:", query);
+
+    const data = await fetchShopify(
+      "products",
+      `?title=${encodeURIComponent(query)}`
+    );
+
+    const products = data.products || [];
+
+    if (products.length === 0) {
+      return res.json({
+        results: [
+          {
+            toolCallId: toolCall.id,
+            result: `Aucun produit trouvé pour "${query}".`,
+          },
+        ],
+      });
+    }
+
+    const responseText = products
+      .slice(0, 5)
+      .map((product) => {
+        return `
+Produit: ${product.title}
+Statut: ${product.status}
+Créé le: ${product.created_at}
+        `.trim();
+      })
+      .join("\n\n");
+
+    return res.json({
+      results: [
+        {
+          toolCallId: toolCall.id,
+          result: responseText,
+        },
+      ],
+    });
   } catch (error) {
     console.error("Erreur Shopify Products:", error);
-    res.json({ found: false, error: "Erreur lors de la récupération des produits." });
+
+    const toolCallId = req.body?.message?.toolCalls?.[0]?.id || "unknown";
+
+    return res.json({
+      results: [
+        {
+          toolCallId,
+          result: `Erreur lors de la récupération des produits: ${error.message}`,
+        },
+      ],
+    });
   }
 });
 
-// Test GET simple pour vérifier si le serveur fonctionne
+// Test GET simple
 app.get("/", (req, res) => {
   res.send("Serveur en ligne. Utilisez POST /shopify/orders ou /shopify/products");
 });

@@ -73,7 +73,6 @@ function getVapiToolCall(req) {
 // ROUTES SHOPIFY
 // ====================================
 
-// Route pour récupérer les commandes
 app.post("/shopify/products", async (req, res) => {
   console.log("BODY VAPI PRODUCTS:");
   console.dir(req.body, { depth: null });
@@ -95,14 +94,14 @@ app.post("/shopify/products", async (req, res) => {
         body: JSON.stringify({
           query: `
             query SearchProducts($search: String!) {
-              products(first: 10, query: $search) {
+              products(first: 20, query: $search) {
                 edges {
                   node {
                     title
                     handle
                     status
                     totalInventory
-                    variants(first: 10) {
+                    variants(first: 20) {
                       edges {
                         node {
                           title
@@ -131,20 +130,61 @@ app.post("/shopify/products", async (req, res) => {
       throw new Error(JSON.stringify(data.errors || data));
     }
 
-    const products = data?.data?.products?.edges || [];
+    let products = data?.data?.products?.edges || [];
+
+    const q = query.toLowerCase();
+
+    const accessoryWords = [
+      "couvert",
+      "couvercle",
+      "panier",
+      "basket",
+      "strainer",
+      "joint",
+      "gasket",
+      "seal",
+      "o-ring",
+      "piece",
+      "pièce",
+      "accessoire",
+      "cartouche",
+      "filtre",
+      "hose",
+      "tuyau",
+    ];
+
+    const wantsPump =
+      q.includes("pompe") ||
+      q.includes("pump") ||
+      q.includes("hp") ||
+      q.includes("hors terre") ||
+      q.includes("above ground");
+
+    if (wantsPump) {
+      products = products.filter(({ node }) => {
+        const title = node.title.toLowerCase();
+
+        const isAccessory = accessoryWords.some((word) =>
+          title.includes(word)
+        );
+
+        return !isAccessory;
+      });
+    }
 
     if (products.length === 0) {
       return res.json({
         results: [
           {
             toolCallId: toolCall.id,
-            result: `Je n'ai trouvé aucun produit correspondant à "${query}". Demande au client de reformuler ou d'épeler le nom du produit.`,
+            result: `Je n'ai pas trouvé de pompe complète correspondant exactement à "${query}". Demande au client la marque, le modèle ou la puissance HP avant de conclure que le produit n'est pas disponible.`,
           },
         ],
       });
     }
 
     const responseText = products
+      .slice(0, 5)
       .map(({ node: product }) => {
         const variantsText = product.variants.edges
           .map(({ node: variant }) => {

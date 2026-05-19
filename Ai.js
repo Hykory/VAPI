@@ -181,29 +181,62 @@ app.post("/shopify/products", async (req, res) => {
 
     const data = await fetchShopify(
       "products",
-      `?title=${encodeURIComponent(query)}`
+      `?limit=50&status=active`
     );
 
     const products = data.products || [];
 
-    if (products.length === 0) {
+    const search = query.toLowerCase();
+
+    const matchedProducts = products.filter((product) => {
+      const titleMatch = product.title?.toLowerCase().includes(search);
+
+      const variantMatch = product.variants?.some((variant) =>
+        variant.title?.toLowerCase().includes(search) ||
+        variant.sku?.toLowerCase().includes(search)
+      );
+
+      return titleMatch || variantMatch;
+    });
+
+    if (matchedProducts.length === 0) {
       return res.json({
         results: [
           {
             toolCallId: toolCall.id,
-            result: `Aucun produit trouvé pour "${query}".`,
+            result: `Je n'ai trouvé aucun produit correspondant à "${query}".`,
           },
         ],
       });
     }
 
-    const responseText = products
+    const responseText = matchedProducts
       .slice(0, 5)
       .map((product) => {
+        const variantsText = product.variants
+          .map((variant) => {
+            const stock = variant.inventory_quantity ?? 0;
+
+            const stockMessage =
+              stock > 0
+                ? `En stock (${stock} disponible${stock > 1 ? "s" : ""})`
+                : "Pas en stock actuellement";
+
+            return `
+- Variante: ${variant.title || "Standard"}
+  Prix: ${variant.price} CAD
+  SKU: ${variant.sku || "N/A"}
+  Stock: ${stockMessage}
+            `.trim();
+          })
+          .join("\n");
+
         return `
 Produit: ${product.title}
-Statut: ${product.status}
-Créé le: ${product.created_at}
+Statut Shopify: ${product.status}
+Lien: https://${SHOPIFY_DOMAIN}/products/${product.handle}
+
+${variantsText}
         `.trim();
       })
       .join("\n\n");
@@ -225,7 +258,7 @@ Créé le: ${product.created_at}
       results: [
         {
           toolCallId,
-          result: `Erreur lors de la récupération des produits: ${error.message}`,
+          result: `Erreur lors de la recherche du produit: ${error.message}`,
         },
       ],
     });

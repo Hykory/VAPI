@@ -1,4 +1,6 @@
+// ============================================================
 // Ai.js - Node.js ES Modules prêt pour Railway
+// ============================================================
 
 import express from "express";
 import cors from "cors";
@@ -9,32 +11,34 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
+
+// ============================================================
+// MIDDLEWARES
+// ============================================================
+
 app.use(cors());
 app.use(express.json());
 
-// Variables d'environnement
+
+// ============================================================
+// VARIABLES D'ENVIRONNEMENT
+// ============================================================
+
 const PORT = process.env.PORT || 8080;
 const SHOPIFY_DOMAIN = process.env.SHOPIFY_DOMAIN;
 const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN;
 
-// Helper Shopify REST
-async function fetchShopify(endpoint, query = "") {
 
+// ============================================================
+// HELPER - REQUÊTE SHOPIFY REST
+// ============================================================
+
+async function fetchShopify(endpoint, query = "") {
   const url = `https://${SHOPIFY_DOMAIN}/admin/api/2024-10/${endpoint}.json${query}`;
 
   console.log("SHOPIFY_DOMAIN:", SHOPIFY_DOMAIN);
-
-  console.log(
-    "SHOPIFY_TOKEN starts with:",
-    SHOPIFY_TOKEN?.slice(0, 6)
-  );
-
-  console.log(
-    "SHOPIFY_TOKEN length:",
-    SHOPIFY_TOKEN?.length
-  );
-
+  console.log("SHOPIFY_TOKEN starts with:", SHOPIFY_TOKEN?.slice(0, 6));
+  console.log("SHOPIFY_TOKEN length:", SHOPIFY_TOKEN?.length);
   console.log("SHOPIFY URL:", url);
 
   const response = await fetch(url, {
@@ -53,7 +57,11 @@ async function fetchShopify(endpoint, query = "") {
   return response.json();
 }
 
-// Helper Vapi
+
+// ============================================================
+// HELPER - RÉCUPÉRER TOOL CALL VAPI
+// ============================================================
+
 function getVapiToolCall(req) {
   const toolCall = req.body?.message?.toolCalls?.[0];
 
@@ -69,10 +77,59 @@ function getVapiToolCall(req) {
   };
 }
 
-// ====================================
-// ROUTES SHOPIFY
-// ====================================
-// Route pour récupérer les commandes
+
+// ============================================================
+// HELPER - NORMALISER LES RECHERCHES PRODUITS
+// ============================================================
+
+function normalizeProductQuery(value = "") {
+  return value
+    .toLowerCase()
+    .replace(/hélios/g, "helios")
+    .replace(/elios/g, "helios")
+    .replace(/heliosse/g, "helios")
+    .replace(/un point cinq/g, "1.5")
+    .replace(/un point 5/g, "1.5")
+    .replace(/un virgule cinq/g, "1.5")
+    .replace(/1 point 5/g, "1.5")
+    .replace(/1 virgule 5/g, "1.5")
+    .replace(/demi hp/g, "0.5hp")
+    .replace(/un demi/g, "0.5")
+    .replace(/zéro point cinq/g, "0.5")
+    .replace(/zero point cinq/g, "0.5")
+    .replace(/filtreur/g, "filtre")
+    .replace(/hors terre/g, "above ground")
+    .replace(/pompe piscine/g, "pompe")
+    .trim();
+}
+
+
+// ============================================================
+// HELPER - FORMATER LES PRIX POUR LA VOIX
+// ============================================================
+
+function formatPriceForVoice(price) {
+  const priceNumber = Number(price);
+
+  if (Number.isNaN(priceNumber)) {
+    return `${price} dollars`;
+  }
+
+  const dollars = Math.floor(priceNumber);
+  const cents = Math.round((priceNumber - dollars) * 100);
+
+  if (cents > 0) {
+    return `${dollars} dollars et ${cents} cents`;
+  }
+
+  return `${dollars} dollars`;
+}
+
+
+// ============================================================
+// ROUTE - RECHERCHE DE COMMANDES SHOPIFY
+// ============================================================
+
 app.post("/shopify/orders", async (req, res) => {
   console.log("BODY VAPI ORDERS:");
   console.dir(req.body, { depth: null });
@@ -105,13 +162,15 @@ app.post("/shopify/orders", async (req, res) => {
 
     const order = orders[0];
 
-    const trackingNumbers = order.fulfillments?.flatMap((fulfillment) =>
-      fulfillment.tracking_numbers || []
-    ) || [];
+    const trackingNumbers =
+      order.fulfillments?.flatMap((fulfillment) =>
+        fulfillment.tracking_numbers || []
+      ) || [];
 
-    const trackingUrls = order.fulfillments?.flatMap((fulfillment) =>
-      fulfillment.tracking_urls || []
-    ) || [];
+    const trackingUrls =
+      order.fulfillments?.flatMap((fulfillment) =>
+        fulfillment.tracking_urls || []
+      ) || [];
 
     let responseText = `
 Commande ${order.name}
@@ -166,7 +225,10 @@ Aucun numéro de tracking disponible pour le moment.`;
   }
 });
 
-//route pour rechercher des produits
+
+// ============================================================
+// ROUTE - RECHERCHE DE PRODUITS SHOPIFY
+// ============================================================
 
 app.post("/shopify/products", async (req, res) => {
   console.log("BODY VAPI PRODUCTS:");
@@ -174,9 +236,12 @@ app.post("/shopify/products", async (req, res) => {
 
   try {
     const { toolCall, args } = getVapiToolCall(req);
-    const query = args.query || "";
 
-    console.log("Recherche produit:", query);
+    const rawQuery = args.query || "";
+    const query = normalizeProductQuery(rawQuery);
+
+    console.log("Recherche produit originale:", rawQuery);
+    console.log("Recherche produit normalisée:", query);
 
     const response = await fetch(
       `https://${SHOPIFY_DOMAIN}/admin/api/2024-10/graphql.json`,
@@ -231,8 +296,10 @@ app.post("/shopify/products", async (req, res) => {
       q.includes("pompe") ||
       q.includes("pump") ||
       q.includes("1.5") ||
+      q.includes("0.5") ||
       q.includes("hp") ||
-      q.includes("helios");
+      q.includes("helios") ||
+      q.includes("above ground");
 
     const accessoryWords = [
       "couvert",
@@ -253,23 +320,6 @@ app.post("/shopify/products", async (req, res) => {
       "piece",
       "pièce",
     ];
-
-    function formatPriceForVoice(price) {
-      const priceNumber = Number(price);
-
-      if (Number.isNaN(priceNumber)) {
-        return `${price} dollars`;
-      }
-
-      const dollars = Math.floor(priceNumber);
-      const cents = Math.round((priceNumber - dollars) * 100);
-
-      if (cents > 0) {
-        return `${dollars} dollars et ${cents} cents`;
-      }
-
-      return `${dollars} dollars`;
-    }
 
     if (wantsPump) {
       products = products.filter(({ node }) => {
@@ -313,32 +363,40 @@ app.post("/shopify/products", async (req, res) => {
         results: [
           {
             toolCallId: toolCall.id,
-            result: `Je n'ai trouvé aucun produit en stock correspondant à "${query}". Demande au client plus de détails comme la marque, le modèle, la grandeur ou la puissance.`,
+            result: `Je n'ai trouvé aucun produit en stock correspondant à "${rawQuery}". Demande au client plus de détails comme la marque, le modèle, la grandeur ou la puissance. Ne conclus pas que le produit n'existe pas.`,
           },
         ],
       });
     }
 
-    const responseText = availableProducts
-      .slice(0, 3)
-      .map((product) => {
-        const variantsText = product.variants
-          .slice(0, 3)
-          .map((variant) => {
-            const variantName =
-              variant.title && variant.title !== "Default Title"
-                ? `, variante ${variant.title}`
-                : "";
+    const responseText = (() => {
+      const intro = wantsPump
+        ? "Oui, nous avons quelques pompes en stock. "
+        : "Oui, nous avons quelques produits en stock. ";
 
-            const priceText = formatPriceForVoice(variant.price);
+      const body = availableProducts
+        .slice(0, 3)
+        .map((product) => {
+          const variantsText = product.variants
+            .slice(0, 3)
+            .map((variant) => {
+              const variantName =
+                variant.title && variant.title !== "Default Title"
+                  ? `, variante ${variant.title}`
+                  : "";
 
-            return `${product.title}${variantName} : ${priceText}, ${variant.stock} en stock.`;
-          })
-          .join(" ");
+              const priceText = formatPriceForVoice(variant.price);
 
-        return variantsText;
-      })
-      .join(" ");
+              return `${product.title}${variantName} : ${priceText}, ${variant.stock} en stock.`;
+            })
+            .join(" ");
+
+          return variantsText;
+        })
+        .join(" ");
+
+      return intro + body;
+    })();
 
     return res.json({
       results: [
@@ -364,12 +422,20 @@ app.post("/shopify/products", async (req, res) => {
   }
 });
 
-// Test GET simple
+
+// ============================================================
+// ROUTE TEST - SERVEUR EN LIGNE
+// ============================================================
+
 app.get("/", (req, res) => {
   res.send("Serveur en ligne. Utilisez POST /shopify/orders ou /shopify/products");
 });
 
-// Lancement du serveur
+
+// ============================================================
+// LANCEMENT DU SERVEUR
+// ============================================================
+
 app.listen(PORT, () => {
   console.log(`Serveur lancé sur le port ${PORT}`);
 });

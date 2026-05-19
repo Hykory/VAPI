@@ -180,37 +180,24 @@ app.post("/shopify/products", async (req, res) => {
     console.log("Recherche produit:", query);
 
     const data = await fetchShopify(
-  "products",
-  `?limit=250&status=active&title=${encodeURIComponent(query)}`
+      "products",
+      `?limit=250&status=active&title=${encodeURIComponent(query)}`
     );
 
     const products = data.products || [];
 
-    const search = query.toLowerCase();
-
-    const matchedProducts = products.filter((product) => {
-      const titleMatch = product.title?.toLowerCase().includes(search);
-
-      const variantMatch = product.variants?.some((variant) =>
-        variant.title?.toLowerCase().includes(search) ||
-        variant.sku?.toLowerCase().includes(search)
-      );
-
-      return titleMatch || variantMatch;
-    });
-
-    if (matchedProducts.length === 0) {
+    if (products.length === 0) {
       return res.json({
         results: [
           {
             toolCallId: toolCall.id,
-            result: `Je n'ai trouvé aucun produit correspondant à "${query}".`,
+            result: `Je n'ai trouvé aucun produit correspondant à "${query}". Propose au client de reformuler avec le nom exact du produit.`,
           },
         ],
       });
     }
 
-    const responseText = matchedProducts
+    const responseText = products
       .slice(0, 5)
       .map((product) => {
         const variantsText = product.variants

@@ -234,7 +234,7 @@ Aucun numéro de tracking disponible pour le moment.`;
 // ROUTE - RECHERCHE DE PRODUITS SHOPIFY
 // ============================================================
 
-app.post("/shopify-search", async (req, res) => {
+app.post("/search_shopify_products", async (req, res) => {
   try {
     const { query } = req.body;
 

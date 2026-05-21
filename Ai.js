@@ -235,22 +235,34 @@ Aucun numéro de tracking disponible pour le moment.`;
 // ============================================================
 
 app.post("/search_shopify_products", async (req, res) => {
+  console.log("BODY VAPI PRODUCTS:");
+  console.dir(req.body, { depth: null });
+
+  const toolCall = req.body?.message?.toolCalls?.[0];
+  const toolCallId = toolCall?.id;
+
   try {
-    const { query } = req.body;
+    let args = toolCall?.function?.arguments || {};
+
+    if (typeof args === "string") {
+      args = JSON.parse(args);
+    }
+
+    const query =
+      args.query ||
+      req.body.query ||
+      "spa";
+
+    console.log("Recherche produit:", query);
 
     const shopifyQuery = `
       query SearchProducts($query: String!) {
         search(query: $query, types: [PRODUCT], first: 5) {
           nodes {
             ... on Product {
-              id
               title
               handle
-              description
               availableForSale
-              featuredImage {
-                url
-              }
               priceRange {
                 minVariantPrice {
                   amount
@@ -263,40 +275,72 @@ app.post("/search_shopify_products", async (req, res) => {
       }
     `;
 
+    const shopifyStore =
+      process.env.SHOPIFY_STORE || process.env.SHOPIFY_DOMAIN;
+
     const response = await fetch(
-      `https://${process.env.SHOPIFY_STORE}/api/2026-01/graphql.json`,
+      `https://${shopifyStore}/api/2026-01/graphql.json`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Shopify-Storefront-Access-Token": process.env.SHOPIFY_STOREFRONT_TOKEN
+          "X-Shopify-Storefront-Access-Token":
+            process.env.SHOPIFY_STOREFRONT_TOKEN,
         },
         body: JSON.stringify({
           query: shopifyQuery,
-          variables: { query }
-        })
+          variables: { query },
+        }),
       }
     );
 
     const data = await response.json();
 
+    console.log("SHOPIFY RESPONSE:");
+    console.dir(data, { depth: null });
+
     const products = data?.data?.search?.nodes || [];
 
-    res.json({
-      success: true,
-      products
+    const responseText =
+      products.length > 0
+        ? products
+            .map((product) => {
+              const price =
+                product.priceRange?.minVariantPrice?.amount || "prix non disponible";
+
+              const currency =
+                product.priceRange?.minVariantPrice?.currencyCode || "CAD";
+
+              const status = product.availableForSale
+                ? "disponible"
+                : "non disponible";
+
+              return `${product.title} - ${price} ${currency} - ${status}`;
+            })
+            .join("\n")
+        : "Aucun produit trouvé.";
+
+    return res.json({
+      results: [
+        {
+          toolCallId,
+          result: responseText,
+        },
+      ],
     });
   } catch (error) {
-    console.error("Shopify search error:", error);
+    console.error("Shopify product search error:", error);
 
-    res.status(500).json({
-      success: false,
-      error: "Shopify search failed"
+    return res.json({
+      results: [
+        {
+          toolCallId,
+          result: `Erreur pendant la recherche produit: ${error.message}`,
+        },
+      ],
     });
   }
 });
-
-
 // ============================================================
 // ROUTE TEST - SERVEUR EN LIGNE
 // ============================================================

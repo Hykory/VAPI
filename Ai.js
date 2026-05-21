@@ -234,196 +234,64 @@ Aucun numéro de tracking disponible pour le moment.`;
 // ROUTE - RECHERCHE DE PRODUITS SHOPIFY
 // ============================================================
 
-app.post("/shopify/products", async (req, res) => {
-  console.log("BODY VAPI PRODUCTS:");
-  console.dir(req.body, { depth: null });
-
+app.post("/shopify-search", async (req, res) => {
   try {
-    const { toolCall, args } = getVapiToolCall(req);
+    const { query } = req.body;
 
-    const rawQuery = args.query || "";
-    const query = normalizeProductQuery(rawQuery);
-
-    console.log("Recherche produit originale:", rawQuery);
-    console.log("Recherche produit normalisée:", query);
+    const shopifyQuery = `
+      query SearchProducts($query: String!) {
+        search(query: $query, types: [PRODUCT], first: 5) {
+          nodes {
+            ... on Product {
+              id
+              title
+              handle
+              description
+              availableForSale
+              featuredImage {
+                url
+              }
+              priceRange {
+                minVariantPrice {
+                  amount
+                  currencyCode
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
 
     const response = await fetch(
-      `https://${SHOPIFY_DOMAIN}/admin/api/2024-10/graphql.json`,
+      `https://${process.env.SHOPIFY_STORE}/api/2026-01/graphql.json`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Shopify-Access-Token": SHOPIFY_TOKEN,
+          "X-Shopify-Storefront-Access-Token": process.env.SHOPIFY_STOREFRONT_TOKEN
         },
         body: JSON.stringify({
-          query: `
-            query SearchProducts($search: String!) {
-              products(first: 50, query: $search) {
-                edges {
-                  node {
-                    title
-                    handle
-                    status
-                    totalInventory
-                    variants(first: 20) {
-                      edges {
-                        node {
-                          title
-                          sku
-                          price
-                          inventoryQuantity
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          `,
-          variables: {
-            variables: {
-  search: query.includes("helios") ? "pompe OR helios OR hélios" : query,
-},
-          },
-        }),
+          query: shopifyQuery,
+          variables: { query }
+        })
       }
     );
 
     const data = await response.json();
 
-    if (!response.ok || data.errors) {
-      throw new Error(JSON.stringify(data.errors || data));
-    }
+    const products = data?.data?.search?.nodes || [];
 
-    let products = data?.data?.products?.edges || [];
-    const q = query.toLowerCase();
-
-    const wantsPump =
-      q.includes("pompe") ||
-      q.includes("pump") ||
-      q.includes("1.5") ||
-      q.includes("0.5") ||
-      q.includes("hp") ||
-      q.includes("helios") ||
-      q.includes("above ground");
-
-    const accessoryWords = [
-      "couvert",
-      "couvercle",
-      "panier",
-      "strainer",
-      "oring",
-      "o-ring",
-      "joint",
-      "drain plug",
-      "plug",
-      "cable",
-      "câble",
-      "filtre",
-      "cartouche",
-      "tuyau",
-      "accessoire",
-      "piece",
-      "pièce",
-    ];
-
-    if (wantsPump) {
-      products = products.filter(({ node }) => {
-        const title = node.title.toLowerCase();
-
-        const isPump =
-          title.includes("pompe") ||
-          title.includes("pump");
-
-        const isAccessory = accessoryWords.some((word) =>
-          title.includes(word)
-        );
-
-        return isPump && !isAccessory;
-      });
-    }
-
-    const availableProducts = products
-      .map(({ node: product }) => {
-        const availableVariants = product.variants.edges
-          .map(({ node: variant }) => {
-            const stock = variant.inventoryQuantity ?? 0;
-
-            return {
-              title: variant.title || "Standard",
-              price: variant.price,
-              stock,
-            };
-          })
-          .filter((variant) => variant.stock > 0);
-
-        return {
-          title: product.title,
-          variants: availableVariants,
-        };
-      })
-      .filter((product) => product.variants.length > 0);
-
-    if (availableProducts.length === 0) {
-      return res.json({
-        results: [
-          {
-            toolCallId: toolCall.id,
-            result: `Je n'ai trouvé aucun produit en stock correspondant à "${rawQuery}". Demande au client plus de détails comme la marque, le modèle, la grandeur ou la puissance. Ne conclus pas que le produit n'existe pas.`,
-          },
-        ],
-      });
-    }
-
-    const responseText = (() => {
-      const intro = wantsPump
-        ? "Oui, nous avons quelques pompes en stock. "
-        : "Oui, nous avons quelques produits en stock. ";
-
-      const body = availableProducts
-        .slice(0, 3)
-        .map((product) => {
-          const variantsText = product.variants
-            .slice(0, 3)
-            .map((variant) => {
-              const variantName =
-                variant.title && variant.title !== "Default Title"
-                  ? `, variante ${variant.title}`
-                  : "";
-
-              const priceText = formatPriceForVoice(variant.price);
-
-              return `${product.title}${variantName} : ${priceText}, ${variant.stock} en stock.`;
-            })
-            .join(" ");
-
-          return variantsText;
-        })
-        .join(" ");
-
-      return intro + body;
-    })();
-
-    return res.json({
-      results: [
-        {
-          toolCallId: toolCall.id,
-          result: responseText,
-        },
-      ],
+    res.json({
+      success: true,
+      products
     });
   } catch (error) {
-    console.error("Erreur Shopify Products:", error);
+    console.error("Shopify search error:", error);
 
-    const toolCallId = req.body?.message?.toolCalls?.[0]?.id || "unknown";
-
-    return res.json({
-      results: [
-        {
-          toolCallId,
-          result: `Erreur lors de la recherche du produit: ${error.message}`,
-        },
-      ],
+    res.status(500).json({
+      success: false,
+      error: "Shopify search failed"
     });
   }
 });

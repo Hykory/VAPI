@@ -349,6 +349,62 @@ app.get("/", (req, res) => {
   res.send("Serveur en ligne. Utilisez POST /shopify/orders ou /shopify/products");
 });
 
+// ============================================================
+// IMPORTS
+// ============================================================
+
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+
+// ============================================================
+// FIX __dirname FOR ES MODULES
+// ============================================================
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+
+// ============================================================
+// ROUTE - GET ALL KNOWLEDGE FILES
+// ============================================================
+
+app.get("/knowledge", async (req, res) => {
+  try {
+    const knowledgePath = path.join(__dirname, "knowledge");
+
+    const files = fs.readdirSync(knowledgePath);
+
+    const txtFiles = files.filter(file => file.endsWith(".txt"));
+
+    const results = txtFiles.map(file => {
+      const content = fs.readFileSync(
+        path.join(knowledgePath, file),
+        "utf-8"
+      );
+
+      return {
+        filename: file,
+        content
+      };
+    });
+
+    res.json({
+      success: true,
+      files: results
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 
 // ============================================================
 // LANCEMENT DU SERVEUR

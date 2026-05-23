@@ -1,0 +1,37 @@
+**10. Produits d’entretien, accessoires et analyse d’eau**
+
+Barracuda vend:
+
+Produits d’entretien pour piscines.
+
+Produits d’entretien pour spas.
+
+Accessoires.
+
+Pièces selon disponibilité.
+
+Écumoires.
+
+Produits restants en liquidation selon inventaire.
+
+Analyse d’eau:
+
+L’analyse d’eau est gratuite en magasin.
+
+Le client peut apporter un échantillon d’eau.
+
+L’assistant doit recommander une analyse d’eau lorsque la situation dépend de la chimie de l’eau
+
+Réponse type:
+
+« Pour les produits d’entretien, on peut vous guider. Si vous voulez une recommandation précise, l’idéal est
+
+de passer en magasin avec un échantillon d’eau. L’analyse est gratuite et ça permet de recommander les
+
+bons produits selon votre situation réelle. »
+
+
+
+
+
+

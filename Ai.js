@@ -228,70 +228,74 @@ function esc(v) {
   return String(v).replace(/"/g, '\\"');
 }
 
+// Shopify search syntax supporte les wildcards en SUFFIXE seulement (`mot*`).
+// Les wildcards englobants (`*mot*`) ne fonctionnent pas → retournent 0 silencieusement.
 function buildShopifyQuery({ tokens, vendor, productType, tags, inStockOnly, level }) {
   const parts = [];
 
-  // Bloc texte selon le niveau
   if (tokens && tokens.length > 0) {
     if (level === "STRICT") {
-      // Phrase exacte dans le titre
-      parts.push(`title:"${esc(tokens.join(" "))}"`);
+      // Chaque token doit apparaître exactement (match de token, pas de wildcard)
+      const block = tokens.map(tok => `title:${tok}`).join(" AND ");
+      parts.push(block);
     } else if (level === "TOKENS") {
-      // Chaque token wildcardé, AND entre eux
+      // Préfixe sur chaque token, dans title/tag/product_type
       const block = tokens
-        .map(tok => `(title:*${tok}* OR tag:*${tok}* OR product_type:*${tok}*)`)
+        .map(tok => `(title:${tok}* OR tag:${tok}* OR product_type:${tok}*)`)
         .join(" AND ");
       parts.push(block);
     } else if (level === "SYNONYMES") {
-      // Chaque token étendu avec ses synonymes (OR interne), AND entre tokens
+      // Tokens + synonymes (OR par token, AND entre tokens), préfixe
       const block = tokens.map(tok => {
         const syns = expandSynonyms(tok);
         const ors = syns
-          .map(s => `title:*${s}* OR tag:*${s}* OR product_type:*${s}* OR vendor:*${s}*`)
+          .map(s => `title:${s}* OR tag:${s}* OR product_type:${s}* OR vendor:${s}*`)
           .join(" OR ");
         return `(${ors})`;
       }).join(" AND ");
       parts.push(block);
     } else if (level === "FILTERS_OFF") {
-      // Mêmes tokens+synonymes mais on retire vendor/type/tags pour élargir
+      // Synonymes mais on drop vendor/type/tags pour élargir
       const block = tokens.map(tok => {
         const syns = expandSynonyms(tok);
-        const ors = syns.map(s => `title:*${s}* OR tag:*${s}*`).join(" OR ");
+        const ors = syns.map(s => `title:${s}* OR tag:${s}*`).join(" OR ");
         return `(${ors})`;
       }).join(" AND ");
       parts.push(block);
     } else if (level === "KEYWORD") {
-      // Uniquement le token le plus long (le plus significatif) + ses synonymes
+      // Token le plus long + ses synonymes
       const longest = [...tokens].sort((a, b) => b.length - a.length)[0];
       const syns = expandSynonyms(longest);
-      const ors = syns.map(s => `title:*${s}* OR tag:*${s}*`).join(" OR ");
+      const ors = syns.map(s => `title:${s}* OR tag:${s}*`).join(" OR ");
       parts.push(`(${ors})`);
     } else if (level === "TAGS_ONLY") {
-      // Dernier recours : recherche dans les tags seulement
+      // Tags seulement
       const block = tokens.map(tok => {
         const syns = expandSynonyms(tok);
-        return `(${syns.map(s => `tag:*${s}*`).join(" OR ")})`;
+        return `(${syns.map(s => `tag:${s}*`).join(" OR ")})`;
       }).join(" OR ");
       parts.push(block);
+    } else if (level === "FULLTEXT") {
+      // Dernier recours : full-text tokenisé par défaut de Shopify (aucun champ explicite)
+      parts.push(tokens.join(" "));
     }
   }
 
-  // Filtres VAPI — uniquement aux niveaux les plus stricts
-  const keepStructuralFilters = level === "STRICT" || level === "TOKENS" || level === "SYNONYMES" || level === "FILTERS_ONLY";
+  // Filtres structurels + stock : uniquement aux niveaux stricts.
+  // À partir de FILTERS_OFF on drop TOUT (y compris inStockOnly) pour maximiser le rappel.
+  const keepAllFilters = level === "STRICT" || level === "TOKENS" || level === "SYNONYMES" || level === "FILTERS_ONLY";
 
-  if (keepStructuralFilters) {
+  if (keepAllFilters) {
     if (vendor) parts.push(`vendor:"${esc(vendor)}"`);
     if (productType) parts.push(`product_type:"${esc(productType)}"`);
     if (tags && tags.length) {
       const tagPart = tags.map(t => `tag:"${esc(t)}"`).join(" AND ");
       parts.push(`(${tagPart})`);
     }
+    if (inStockOnly) parts.push(`inventory_total:>0`);
   }
 
-  // Stock : contrainte dure, on la garde à tous les niveaux si demandée
-  if (inStockOnly) parts.push(`inventory_total:>0`);
-
-  // Toujours filtrer les drafts/archivés
+  // Toujours exclure drafts/archivés
   parts.push(`status:active`);
 
   return parts.join(" AND ");
@@ -343,7 +347,7 @@ const PRODUCTS_GQL = `
 // RECHERCHE EN CASCADE — du plus précis au plus large
 // ============================================================
 
-const CASCADE_LEVELS = ["STRICT", "TOKENS", "SYNONYMES", "FILTERS_OFF", "KEYWORD", "TAGS_ONLY"];
+const CASCADE_LEVELS = ["STRICT", "TOKENS", "SYNONYMES", "FILTERS_OFF", "KEYWORD", "TAGS_ONLY", "FULLTEXT"];
 
 function applyPriceFilter(products, minPrice, maxPrice) {
   if (minPrice == null && maxPrice == null) return products;
@@ -370,17 +374,26 @@ async function cascadeSearch(args) {
 
   const tokens = tokenize(query);
   const fetchCount = Math.min(Math.max(limit * 2, 10), 100); // marge pour filtrage prix client-side
+  const debugTrace = [];
 
   // Cas 1 : pas de texte, seulement des filtres
   if (tokens.length === 0) {
     const q = buildShopifyQuery({ tokens: [], vendor, productType, tags, inStockOnly, level: "FILTERS_ONLY" });
-    const products = applyPriceFilter(await runShopifySearch(q, fetchCount), minPrice, maxPrice);
-    return {
-      products: products.slice(0, limit),
-      level: "FILTERS_ONLY",
-      finalQuery: q,
-      widened: false,
-    };
+    try {
+      const raw = await runShopifySearch(q, fetchCount);
+      const products = applyPriceFilter(raw, minPrice, maxPrice);
+      debugTrace.push({ level: "FILTERS_ONLY", query: q, fetched: raw.length, after_price_filter: products.length });
+      return {
+        products: products.slice(0, limit),
+        level: "FILTERS_ONLY",
+        finalQuery: q,
+        widened: false,
+        debugTrace,
+      };
+    } catch (err) {
+      debugTrace.push({ level: "FILTERS_ONLY", query: q, error: err.message });
+      return { products: [], level: "NONE", finalQuery: null, widened: true, debugTrace };
+    }
   }
 
   // Cas 2 : cascade textuelle
@@ -392,11 +405,15 @@ async function cascadeSearch(args) {
     try {
       products = await runShopifySearch(q, fetchCount);
     } catch (err) {
-      console.error(`[cascade] level=${level} failed:`, err.message);
+      console.error(`[cascade] level=${level} FAILED query="${q}" err=${err.message}`);
+      debugTrace.push({ level, query: q, error: err.message });
       continue; // on tente le niveau suivant
     }
 
+    const before = products.length;
     products = applyPriceFilter(products, minPrice, maxPrice);
+    debugTrace.push({ level, query: q, fetched: before, after_price_filter: products.length });
+    console.log(`[cascade] level=${level} query="${q}" fetched=${before} after_price_filter=${products.length}`);
 
     if (products.length > 0) {
       return {
@@ -404,11 +421,12 @@ async function cascadeSearch(args) {
         level,
         finalQuery: q,
         widened: level !== "STRICT",
+        debugTrace,
       };
     }
   }
 
-  return { products: [], level: "NONE", finalQuery: null, widened: true };
+  return { products: [], level: "NONE", finalQuery: null, widened: true, debugTrace };
 }
 
 
@@ -451,9 +469,10 @@ function buildMessage({ count, level, widened }) {
   const explain = {
     TOKENS:      "j'ai cherché chaque mot séparément",
     SYNONYMES:   "j'ai inclus les synonymes FR/EN et le vocabulaire technique",
-    FILTERS_OFF: "j'ai retiré certains filtres (marque/type) pour élargir",
+    FILTERS_OFF: "j'ai retiré certains filtres (marque/type/stock) pour élargir",
     KEYWORD:     "j'ai gardé seulement le mot-clé principal",
     TAGS_ONLY:   "j'ai cherché uniquement dans les catégories/tags",
+    FULLTEXT:    "j'ai fait une recherche libre sans aucune contrainte",
     FILTERS_ONLY:"je n'ai utilisé que les filtres fournis",
   }[level] || "j'ai élargi la recherche";
   return `${count} produit(s) trouvé(s) après élargissement (${explain}). Mentionne au client que tu as élargi la recherche pour trouver ces résultats.`;
@@ -503,13 +522,13 @@ app.post("/search_shopify_products", async (req, res) => {
       widenIfEmpty: args.widen_if_empty !== false,
     };
 
-    const { products, level, finalQuery, widened } = await cascadeSearch(searchArgs);
+    const { products, level, finalQuery, widened, debugTrace } = await cascadeSearch(searchArgs);
     const formatted = products.map(formatProduct);
     const ms = Date.now() - start;
 
     console.log(`[search_shopify_products] level=${level} count=${formatted.length} ms=${ms}ms query="${finalQuery}"`);
 
-    return res.json(vapiResult(toolCallId, {
+    const response = {
       count: formatted.length,
       products: formatted,
       search_strategy_used: level,
@@ -524,7 +543,14 @@ app.post("/search_shopify_products", async (req, res) => {
         in_stock_only: searchArgs.inStockOnly,
       },
       message: buildMessage({ count: formatted.length, level, widened }),
-    }));
+    };
+
+    // Diagnostic : si 0 résultat, on remonte la trace pour comprendre sans aller dans Railway
+    if (formatted.length === 0) {
+      response.debug = debugTrace;
+    }
+
+    return res.json(vapiResult(toolCallId, response));
   } catch (err) {
     const ms = Date.now() - start;
     console.error(`[search_shopify_products] ERROR after ${ms}ms:`, err);
@@ -550,11 +576,52 @@ app.get("/", (_req, res) => {
   res.json({
     status: "ok",
     service: "VAPI ↔ Shopify bridge",
-    routes: ["POST /search_shopify_products"],
+    routes: ["POST /search_shopify_products", "GET /diagnose-shopify"],
     shopify_domain_configured: !!SHOPIFY_DOMAIN,
     shopify_token_configured: !!SHOPIFY_TOKEN,
     api_version: SHOPIFY_API_VERSION,
   });
+});
+
+
+// ============================================================
+// DIAGNOSTIC SHOPIFY — vérifie auth + liste 3 produits sample
+// Hit depuis le navigateur : /diagnose-shopify
+// ============================================================
+
+app.get("/diagnose-shopify", async (_req, res) => {
+  try {
+    const data = await fetchShopifyGraphQL(`
+      query Diagnose {
+        shop {
+          name
+          primaryDomain { host }
+          plan { displayName }
+        }
+        products(first: 3) {
+          edges {
+            node {
+              id
+              title
+              status
+              vendor
+              productType
+              totalInventory
+              tags
+            }
+          }
+        }
+      }
+    `);
+    res.json({
+      ok: true,
+      shop: data.shop,
+      sample_products: (data.products?.edges || []).map(e => e.node),
+      product_count_sample: data.products?.edges?.length || 0,
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 

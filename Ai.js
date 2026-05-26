@@ -29,11 +29,22 @@ const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || "2026-04";
 const VAPI_PRIVATE_KEY = process.env.VAPI_PRIVATE_KEY;
 const VAPI_ASSISTANT_ID = process.env.VAPI_ASSISTANT_ID;
 
+// Analyse hebdo des appels VAPI (« coach IA »)
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const REPORT_EMAIL_TO = process.env.REPORT_EMAIL_TO;
+const REPORT_EMAIL_FROM = process.env.REPORT_EMAIL_FROM || "Barracuda Coach <onboarding@resend.dev>";
+const ANALYSIS_SECRET = process.env.ANALYSIS_SECRET || "change-me";
+const ANALYSIS_TIMEZONE = process.env.ANALYSIS_TIMEZONE || "America/Toronto";
+
 if (!SHOPIFY_DOMAIN || !SHOPIFY_TOKEN) {
   console.warn("[BOOT] WARNING: SHOPIFY_DOMAIN or SHOPIFY_TOKEN missing — Shopify calls will fail.");
 }
 if (!VAPI_PRIVATE_KEY || !VAPI_ASSISTANT_ID) {
   console.warn("[BOOT] WARNING: VAPI_PRIVATE_KEY or VAPI_ASSISTANT_ID missing — SMS will fail.");
+}
+if (!ANTHROPIC_API_KEY || !RESEND_API_KEY || !REPORT_EMAIL_TO) {
+  console.warn("[BOOT] WARNING: ANTHROPIC_API_KEY / RESEND_API_KEY / REPORT_EMAIL_TO missing — weekly analysis will fail.");
 }
 
 
@@ -725,6 +736,338 @@ app.get("/diagnose-sms", async (req, res) => {
 
 
 // ============================================================
+// COACH IA — Analyse hebdo des appels VAPI
+// 1. Fetch les appels VAPI de la semaine
+// 2. Pré-filtre les « intéressants » (échecs, courts, erreurs)
+// 3. Envoie à Claude Sonnet 4.6 qui produit un rapport JSON
+// 4. Envoie le rapport par courriel via Resend
+//
+// Déclencheur : automatique tous les dimanches 23h (timezone Toronto)
+// OU manuel via POST /weekly-analysis?secret=<ANALYSIS_SECRET>
+//
+// Env requis : ANTHROPIC_API_KEY, RESEND_API_KEY, REPORT_EMAIL_TO,
+//              VAPI_PRIVATE_KEY (déjà setup pour le SMS)
+// ============================================================
+
+// --- 1. FETCH des appels VAPI ---
+async function fetchVapiCalls(startDate, endDate) {
+  const url = `https://api.vapi.ai/call?createdAtGe=${startDate.toISOString()}&createdAtLe=${endDate.toISOString()}&limit=1000`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${VAPI_PRIVATE_KEY}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`VAPI Calls API HTTP ${response.status}: ${text}`);
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : (data.calls || []);
+}
+
+// --- 2. PRÉ-FILTRAGE des appels « intéressants » ---
+function isInterestingCall(call) {
+  const durationSec = call.endedAt && call.startedAt
+    ? (new Date(call.endedAt) - new Date(call.startedAt)) / 1000
+    : 0;
+
+  // Critères : trop court, trop long, raison de fin suspecte, erreur tool, échec
+  if (durationSec < 30) return true;                              // raccrochage rapide = problème
+  if (durationSec > 300) return true;                             // > 5 min = client s'enlise
+  if (call.endedReason && /error|failed|timeout/i.test(call.endedReason)) return true;
+  if (call.status === "failed") return true;
+
+  // A-t-on des messages "je ne sais pas" / "désolé" ?
+  const transcript = (call.transcript || "").toLowerCase();
+  if (/je ne sais pas|je ne trouve pas|désolé|i don'?t know|sorry/i.test(transcript)) return true;
+
+  return false;
+}
+
+function compactCallForAnalysis(call) {
+  // Réduit l'objet à l'essentiel pour économiser des tokens
+  return {
+    id: call.id,
+    duration_sec: call.endedAt && call.startedAt
+      ? Math.round((new Date(call.endedAt) - new Date(call.startedAt)) / 1000)
+      : null,
+    ended_reason: call.endedReason || null,
+    transcript: call.transcript || "",
+    tool_calls_made: (call.messages || [])
+      .filter(m => m.role === "tool_calls" || m.toolCalls)
+      .map(m => m.toolCalls?.[0]?.function?.name || m.name)
+      .filter(Boolean),
+  };
+}
+
+// --- 3. ANALYSE par Claude Sonnet 4.6 ---
+const COACH_SYSTEM_PROMPT = `Tu es un coach IA expert pour Barracuda Piscines & Spas, un magasin de piscines et spas à Gatineau, Québec.
+
+Tu analyses les transcripts d'appels et SMS de la semaine de leur agent vocal IA bilingue (FR/EN) qui :
+- Répond aux appels téléphoniques entrants et aux SMS
+- A accès à 2 tools : search_shopify_products (recherche catalogue) et search_shopify_orders (suivi commandes par n°)
+- A 11 fichiers de knowledge (eau verte, pH, filtres, spa, liner, fibre de verre, etc.)
+- Suit un prompt qui demande : réponses courtes, une question à la fois, prix en lettres françaises complètes, ne jamais dire qu'un produit n'existe pas avant d'avoir cherché Shopify, redirige vers magasin/courriel pour les demandes humaines
+
+Ton job : identifier ce qui ne va PAS et proposer des fixes CONCRETS et APPLICABLES immédiatement.
+
+Tu DOIS produire un rapport JSON entre les balises <REPORT> et </REPORT>, suivant exactement ce schéma :
+
+<REPORT>
+{
+  "period": "YYYY-MM-DD → YYYY-MM-DD",
+  "total_calls_analyzed": <number>,
+  "global_summary": "1-2 phrases résumant l'état général de la semaine",
+  "top_issues": [
+    {
+      "rank": 1,
+      "issue": "Description courte du problème",
+      "frequency": "X appels concernés",
+      "example_transcript_excerpt": "Court extrait illustrant",
+      "root_cause": "Pourquoi ça arrive",
+      "proposed_fix": "Action précise à prendre (modif prompt, ajout synonyme, etc.)",
+      "fix_location": "prompt FR | prompt EN | Ai.js synonymes | knowledge file: nom.txt"
+    }
+  ],
+  "missing_synonyms": [
+    { "word_heard": "mot client", "should_match": "mot catalogue", "context": "ex: recherche pompe" }
+  ],
+  "knowledge_gaps": [
+    "Questions auxquelles l'IA n'a pas su répondre, sujet absent de la knowledge"
+  ],
+  "hallucinations_detected": [
+    { "transcript_id": "...", "what_was_said": "...", "why_problematic": "..." }
+  ],
+  "wins": [
+    "Choses qui ont bien fonctionné cette semaine, à conserver"
+  ]
+}
+</REPORT>
+
+Règles :
+- Maximum 5 entrées dans top_issues, classées par fréquence/impact
+- Maximum 10 missing_synonyms
+- Sois CONCRET : « ajoute "filtreur" comme synonyme de "filtre" dans Ai.js ligne ~120 » plutôt que « améliorer la recherche »
+- Si rien d'alarmant : retourne quand même un rapport avec top_issues vide et wins remplis
+- N'invente RIEN. Si tu ne vois pas un pattern dans les transcripts fournis, ne le mentionne pas.`;
+
+async function analyzeWithClaude(calls) {
+  if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY missing");
+
+  const userMessage = `Voici ${calls.length} transcripts d'appels intéressants de la semaine écoulée. Analyse-les et produis le rapport JSON.
+
+${calls.map((c, i) => `--- APPEL ${i + 1} (id: ${c.id}, durée: ${c.duration_sec}s, fin: ${c.ended_reason}, tools: ${c.tool_calls_made.join(", ") || "aucun"}) ---
+${c.transcript}
+`).join("\n\n")}`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 4096,
+      system: COACH_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Anthropic API HTTP ${response.status}: ${text}`);
+  }
+
+  const data = await response.json();
+  const fullText = data.content?.[0]?.text || "";
+
+  // Extraire le JSON entre les balises <REPORT></REPORT>
+  const match = fullText.match(/<REPORT>\s*([\s\S]+?)\s*<\/REPORT>/);
+  if (!match) {
+    throw new Error(`Claude n'a pas produit de bloc <REPORT> parsable. Réponse brute: ${fullText.slice(0, 500)}`);
+  }
+
+  let report;
+  try {
+    report = JSON.parse(match[1]);
+  } catch (e) {
+    throw new Error(`JSON invalide dans le rapport Claude: ${e.message}. Brut: ${match[1].slice(0, 500)}`);
+  }
+
+  return { report, cost_usd: data.usage ? ((data.usage.input_tokens * 3 + data.usage.output_tokens * 15) / 1_000_000) : null, raw_text: fullText };
+}
+
+// --- 4. FORMATAGE HTML du rapport pour le courriel ---
+function reportToHtml(report, meta) {
+  const escapeHtml = s => String(s ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const issuesList = (report.top_issues || []).map(i => `
+    <li style="margin-bottom: 16px;">
+      <strong>#${escapeHtml(i.rank)} — ${escapeHtml(i.issue)}</strong> <em>(${escapeHtml(i.frequency)})</em><br>
+      <strong>Cause :</strong> ${escapeHtml(i.root_cause)}<br>
+      <strong>Fix proposé :</strong> ${escapeHtml(i.proposed_fix)}<br>
+      <strong>Où appliquer :</strong> <code>${escapeHtml(i.fix_location)}</code><br>
+      <em>Extrait :</em> ${escapeHtml(i.example_transcript_excerpt)}
+    </li>`).join("");
+
+  const synonymsList = (report.missing_synonyms || []).map(s =>
+    `<li><code>${escapeHtml(s.word_heard)}</code> → <code>${escapeHtml(s.should_match)}</code> (${escapeHtml(s.context)})</li>`
+  ).join("");
+
+  const gapsList = (report.knowledge_gaps || []).map(g => `<li>${escapeHtml(g)}</li>`).join("");
+  const winsList = (report.wins || []).map(w => `<li>${escapeHtml(w)}</li>`).join("");
+
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 720px; margin: auto; color: #1a1a1a;">
+      <h1 style="color: #0a6cb9;">🏊 Rapport hebdomadaire — Barracuda Coach IA</h1>
+      <p><strong>Période :</strong> ${escapeHtml(report.period)}<br>
+         <strong>Appels analysés :</strong> ${escapeHtml(report.total_calls_analyzed)} (sur ${meta.total_fetched} appels totaux)<br>
+         <strong>Coût analyse :</strong> ${meta.cost_usd ? "$" + meta.cost_usd.toFixed(4) : "N/A"} USD</p>
+
+      <h2>📊 Résumé global</h2>
+      <p>${escapeHtml(report.global_summary)}</p>
+
+      ${report.top_issues?.length ? `<h2>🎯 Top problèmes à corriger</h2><ol>${issuesList}</ol>` : ""}
+
+      ${synonymsList ? `<h2>🔤 Synonymes manquants</h2><ul>${synonymsList}</ul>` : ""}
+
+      ${gapsList ? `<h2>📚 Lacunes de connaissance</h2><ul>${gapsList}</ul>` : ""}
+
+      ${winsList ? `<h2>✅ Ce qui a bien fonctionné</h2><ul>${winsList}</ul>` : ""}
+
+      <hr style="margin-top: 32px;">
+      <p style="color: #888; font-size: 12px;">
+        Rapport généré automatiquement à partir de ${meta.total_fetched} appels VAPI.<br>
+        Tu peux appliquer manuellement les fixes proposés au prompt VAPI ou à <code>Ai.js</code>.<br>
+        Pour relancer une analyse à tout moment : <code>POST /weekly-analysis?secret=...</code>
+      </p>
+    </div>`;
+}
+
+// --- 5. ENVOI courriel via Resend ---
+async function sendEmailReport(report, meta) {
+  if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY missing");
+  if (!REPORT_EMAIL_TO) throw new Error("REPORT_EMAIL_TO missing");
+
+  const html = reportToHtml(report, meta);
+  const subject = `🏊 Coach IA — ${report.period} (${report.total_calls_analyzed} appels)`;
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: REPORT_EMAIL_FROM,
+      to: [REPORT_EMAIL_TO],
+      subject,
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Resend API HTTP ${response.status}: ${text}`);
+  }
+
+  return await response.json();
+}
+
+// --- 6. ORCHESTRATION ---
+async function runWeeklyAnalysis() {
+  const endDate = new Date();
+  const startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  console.log(`[coach] Starting weekly analysis ${startDate.toISOString()} → ${endDate.toISOString()}`);
+
+  const allCalls = await fetchVapiCalls(startDate, endDate);
+  console.log(`[coach] Fetched ${allCalls.length} calls`);
+
+  if (allCalls.length === 0) {
+    console.log(`[coach] No calls this period, skipping analysis.`);
+    return { skipped: true, reason: "no_calls" };
+  }
+
+  const interesting = allCalls.filter(isInterestingCall).map(compactCallForAnalysis);
+  console.log(`[coach] ${interesting.length} interesting calls after pre-filtering`);
+
+  // Si rien d'intéressant, on envoie quand même un mini-rapport positif
+  if (interesting.length === 0) {
+    const emptyReport = {
+      period: `${startDate.toISOString().split("T")[0]} → ${endDate.toISOString().split("T")[0]}`,
+      total_calls_analyzed: 0,
+      global_summary: `Aucun appel problématique cette semaine sur ${allCalls.length} appels totaux. L'IA semble bien performer.`,
+      top_issues: [],
+      missing_synonyms: [],
+      knowledge_gaps: [],
+      hallucinations_detected: [],
+      wins: [`${allCalls.length} appels gérés sans signaux d'alerte`],
+    };
+    await sendEmailReport(emptyReport, { total_fetched: allCalls.length, cost_usd: 0 });
+    return { sent: true, calls_analyzed: 0, cost_usd: 0 };
+  }
+
+  const { report, cost_usd } = await analyzeWithClaude(interesting);
+  console.log(`[coach] Claude analysis done. Cost: $${cost_usd?.toFixed(4)}`);
+
+  await sendEmailReport(report, { total_fetched: allCalls.length, cost_usd });
+  console.log(`[coach] Email sent to ${REPORT_EMAIL_TO}`);
+
+  return {
+    sent: true,
+    calls_fetched: allCalls.length,
+    calls_analyzed: interesting.length,
+    cost_usd,
+    report,
+  };
+}
+
+// --- 7. ENDPOINT manuel + déclencheur cron interne ---
+app.post("/weekly-analysis", async (req, res) => {
+  const providedSecret = req.query.secret || req.body?.secret;
+  if (providedSecret !== ANALYSIS_SECRET) {
+    return res.status(401).json({ error: "Invalid secret" });
+  }
+
+  try {
+    const result = await runWeeklyAnalysis();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error("[coach] FATAL:", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Cron interne : check toutes les 60 min, déclenche dimanche 23h, timezone Toronto
+// Réliable même si Railway redémarre (la fenêtre 23:00–23:59 du dimanche couvre le redémarrage)
+let lastWeeklyRunDate = null;
+setInterval(async () => {
+  try {
+    const now = new Date();
+    const local = new Date(now.toLocaleString("en-US", { timeZone: ANALYSIS_TIMEZONE }));
+    const todayStr = local.toISOString().split("T")[0];
+
+    if (local.getDay() === 0 && local.getHours() === 23 && lastWeeklyRunDate !== todayStr) {
+      lastWeeklyRunDate = todayStr;
+      console.log(`[coach] CRON triggered at ${local.toISOString()} (local TZ ${ANALYSIS_TIMEZONE})`);
+      const result = await runWeeklyAnalysis();
+      console.log(`[coach] CRON done:`, JSON.stringify(result).slice(0, 200));
+    }
+  } catch (err) {
+    console.error("[coach] CRON failed:", err);
+  }
+}, 60 * 60 * 1000); // 60 minutes
+
+
+// ============================================================
 // HEALTH CHECK
 // ============================================================
 
@@ -736,12 +1079,14 @@ app.get("/", (_req, res) => {
       "POST /search_shopify_products",
       "POST /search_shopify_orders",
       "POST /sms/incoming",
+      "POST /weekly-analysis",
       "GET /diagnose-shopify",
       "GET /diagnose-sms",
     ],
     shopify_domain_configured: !!SHOPIFY_DOMAIN,
     shopify_token_configured: !!SHOPIFY_TOKEN,
     vapi_configured: !!(VAPI_PRIVATE_KEY && VAPI_ASSISTANT_ID),
+    coach_configured: !!(ANTHROPIC_API_KEY && RESEND_API_KEY && REPORT_EMAIL_TO),
     sms_sessions_active: smsSessions.size,
     api_version: SHOPIFY_API_VERSION,
   });

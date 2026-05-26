@@ -815,51 +815,78 @@ Tu analyses les transcripts d'appels et SMS de la semaine de leur agent vocal IA
 
 Ton job : identifier ce qui ne va PAS et proposer des fixes CONCRETS et APPLICABLES immédiatement.
 
-Tu DOIS produire un rapport JSON entre les balises <REPORT> et </REPORT>, suivant exactement ce schéma :
-
-<REPORT>
-{
-  "period": "YYYY-MM-DD → YYYY-MM-DD",
-  "total_calls_analyzed": <number>,
-  "global_summary": "1-2 phrases résumant l'état général de la semaine",
-  "top_issues": [
-    {
-      "rank": 1,
-      "issue": "Description courte du problème",
-      "frequency": "X appels concernés",
-      "example_transcript_excerpt": "Court extrait illustrant",
-      "root_cause": "Pourquoi ça arrive",
-      "proposed_fix": "Action précise à prendre (modif prompt, ajout synonyme, etc.)",
-      "fix_location": "prompt FR | prompt EN | Ai.js synonymes | knowledge file: nom.txt"
-    }
-  ],
-  "missing_synonyms": [
-    { "word_heard": "mot client", "should_match": "mot catalogue", "context": "ex: recherche pompe" }
-  ],
-  "knowledge_gaps": [
-    "Questions auxquelles l'IA n'a pas su répondre, sujet absent de la knowledge"
-  ],
-  "hallucinations_detected": [
-    { "transcript_id": "...", "what_was_said": "...", "why_problematic": "..." }
-  ],
-  "wins": [
-    "Choses qui ont bien fonctionné cette semaine, à conserver"
-  ]
-}
-</REPORT>
+Tu DOIS appeler l'outil submit_weekly_report avec ton analyse complète. C'est le SEUL moyen de soumettre ton rapport.
 
 Règles :
 - Maximum 5 entrées dans top_issues, classées par fréquence/impact
 - Maximum 10 missing_synonyms
 - Sois CONCRET : « ajoute "filtreur" comme synonyme de "filtre" dans Ai.js ligne ~120 » plutôt que « améliorer la recherche »
-- Si rien d'alarmant : retourne quand même un rapport avec top_issues vide et wins remplis
-- N'invente RIEN. Si tu ne vois pas un pattern dans les transcripts fournis, ne le mentionne pas.
+- Si rien d'alarmant : appelle quand même submit_weekly_report avec top_issues vide et wins remplis
+- N'invente RIEN. Si tu ne vois pas un pattern dans les transcripts fournis, ne le mentionne pas.`;
 
-CRITIQUE — FORMAT DE SORTIE :
-- Ta réponse DOIT commencer EXACTEMENT par le caractère "{" (l'ouverture du JSON)
-- Termine ta réponse par "</REPORT>"
-- AUCUN texte d'introduction, AUCUNE analyse en amont, AUCUN markdown, AUCUN bloc de code
-- Si tu écris quoi que ce soit avant le "{", la réponse sera rejetée et l'analyse échouera`;
+const COACH_TOOL_SCHEMA = {
+  name: "submit_weekly_report",
+  description: "Soumet le rapport hebdomadaire d'analyse des appels VAPI",
+  input_schema: {
+    type: "object",
+    required: ["period", "total_calls_analyzed", "global_summary", "top_issues", "missing_synonyms", "knowledge_gaps", "hallucinations_detected", "wins"],
+    properties: {
+      period: { type: "string", description: "Période analysée au format YYYY-MM-DD → YYYY-MM-DD" },
+      total_calls_analyzed: { type: "integer", description: "Nombre d'appels examinés en détail" },
+      global_summary: { type: "string", description: "1-2 phrases résumant l'état général de la semaine" },
+      top_issues: {
+        type: "array",
+        maxItems: 5,
+        items: {
+          type: "object",
+          required: ["rank", "issue", "frequency", "example_transcript_excerpt", "root_cause", "proposed_fix", "fix_location"],
+          properties: {
+            rank: { type: "integer" },
+            issue: { type: "string", description: "Description courte du problème" },
+            frequency: { type: "string", description: "Ex: '4 appels concernés'" },
+            example_transcript_excerpt: { type: "string", description: "Court extrait illustrant le problème" },
+            root_cause: { type: "string", description: "Pourquoi ça arrive" },
+            proposed_fix: { type: "string", description: "Action précise à prendre" },
+            fix_location: { type: "string", description: "Où appliquer le fix: prompt FR | prompt EN | Ai.js synonymes | knowledge file: nom.txt" }
+          }
+        }
+      },
+      missing_synonyms: {
+        type: "array",
+        maxItems: 10,
+        items: {
+          type: "object",
+          required: ["word_heard", "should_match", "context"],
+          properties: {
+            word_heard: { type: "string", description: "Mot prononcé par le client" },
+            should_match: { type: "string", description: "Mot du catalogue que ça devrait matcher" },
+            context: { type: "string", description: "Ex: 'recherche pompe'" }
+          }
+        }
+      },
+      knowledge_gaps: {
+        type: "array",
+        items: { type: "string", description: "Question/sujet absent de la knowledge base" }
+      },
+      hallucinations_detected: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["what_was_said", "why_problematic"],
+          properties: {
+            transcript_id: { type: "string" },
+            what_was_said: { type: "string" },
+            why_problematic: { type: "string" }
+          }
+        }
+      },
+      wins: {
+        type: "array",
+        items: { type: "string", description: "Comportements positifs à conserver" }
+      }
+    }
+  }
+};
 
 async function analyzeWithClaude(calls) {
   if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY missing");
@@ -881,11 +908,10 @@ ${c.transcript}
       model: "claude-sonnet-4-6",
       max_tokens: 8192,
       system: COACH_SYSTEM_PROMPT,
-      messages: [
-        { role: "user", content: userMessage },
-        // Prefill : on force Claude à commencer sa réponse par "{" — il ne peut plus faire de préambule
-        { role: "assistant", content: "{" },
-      ],
+      tools: [COACH_TOOL_SCHEMA],
+      // Force Claude à utiliser ce tool spécifique — garantit JSON valide selon le schéma
+      tool_choice: { type: "tool", name: "submit_weekly_report" },
+      messages: [{ role: "user", content: userMessage }],
     }),
   });
 
@@ -895,39 +921,22 @@ ${c.transcript}
   }
 
   const data = await response.json();
-  // Avec le prefill "{", Claude continue à partir du "{", donc on remet le "{" devant
-  const fullText = "{" + (data.content?.[0]?.text || "");
 
-  // Parsing : on accepte plusieurs formats au cas où
-  // (a) JSON pur (cas attendu avec prefill)
-  // (b) JSON suivi de </REPORT>
-  // (c) <REPORT>...</REPORT> (fallback ancien format)
-  let jsonStr = null;
+  // Avec tool_use forcé, Claude DOIT appeler submit_weekly_report — on extrait l'input
+  const toolUseBlock = (data.content || []).find(
+    b => b.type === "tool_use" && b.name === "submit_weekly_report"
+  );
 
-  const reportMatch = fullText.match(/<REPORT>\s*([\s\S]+?)\s*<\/REPORT>/);
-  if (reportMatch) {
-    jsonStr = reportMatch[1];
-  } else {
-    // Trouver le 1er "{" et le dernier "}" pour extraire le JSON
-    const firstBrace = fullText.indexOf("{");
-    const lastBrace = fullText.lastIndexOf("}");
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      jsonStr = fullText.slice(firstBrace, lastBrace + 1);
-    }
+  if (!toolUseBlock || !toolUseBlock.input) {
+    throw new Error(`Claude n'a pas appelé submit_weekly_report. Réponse brute: ${JSON.stringify(data.content).slice(0, 800)}`);
   }
 
-  if (!jsonStr) {
-    throw new Error(`Aucun JSON détecté dans la réponse Claude. Brut: ${fullText.slice(0, 800)}`);
-  }
+  const report = toolUseBlock.input;
+  const cost_usd = data.usage
+    ? ((data.usage.input_tokens * 3 + data.usage.output_tokens * 15) / 1_000_000)
+    : null;
 
-  let report;
-  try {
-    report = JSON.parse(jsonStr);
-  } catch (e) {
-    throw new Error(`JSON invalide: ${e.message}. Tentative: ${jsonStr.slice(0, 500)}`);
-  }
-
-  return { report, cost_usd: data.usage ? ((data.usage.input_tokens * 3 + data.usage.output_tokens * 15) / 1_000_000) : null, raw_text: fullText };
+  return { report, cost_usd, raw_text: JSON.stringify(data.content) };
 }
 
 // --- 4. FORMATAGE HTML du rapport pour le courriel ---

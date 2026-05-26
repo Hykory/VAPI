@@ -576,11 +576,182 @@ app.get("/", (_req, res) => {
   res.json({
     status: "ok",
     service: "VAPI ↔ Shopify bridge",
-    routes: ["POST /search_shopify_products", "GET /diagnose-shopify"],
+    routes: [
+      "POST /search_shopify_products",
+      "POST /search_shopify_orders",
+      "GET /diagnose-shopify",
+    ],
     shopify_domain_configured: !!SHOPIFY_DOMAIN,
     shopify_token_configured: !!SHOPIFY_TOKEN,
     api_version: SHOPIFY_API_VERSION,
   });
+});
+
+
+// ============================================================
+// ROUTE — POST /search_shopify_orders  (tool VAPI)
+// Lookup d'une commande par n° (#1234 ou 1234)
+// Retourne : statut paiement + statut fulfillment + items achetés
+// Permission Shopify requise : scope `read_orders` sur l'app custom
+// ============================================================
+
+const ORDER_GQL = `
+  query GetOrder($q: String!) {
+    orders(first: 5, query: $q, sortKey: CREATED_AT, reverse: true) {
+      edges {
+        node {
+          id
+          name
+          createdAt
+          displayFinancialStatus
+          displayFulfillmentStatus
+          totalPriceSet { shopMoney { amount currencyCode } }
+          customer {
+            firstName
+            lastName
+            email
+          }
+          lineItems(first: 50) {
+            edges {
+              node {
+                title
+                quantity
+                variantTitle
+                sku
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+// Traduit les statuts Shopify (en majuscules) en libellés FR courts pour l'IA
+const FINANCIAL_STATUS_FR = {
+  PAID: "payée",
+  PENDING: "en attente de paiement",
+  AUTHORIZED: "autorisée",
+  PARTIALLY_PAID: "partiellement payée",
+  REFUNDED: "remboursée",
+  PARTIALLY_REFUNDED: "partiellement remboursée",
+  VOIDED: "annulée",
+  EXPIRED: "expirée",
+};
+
+const FULFILLMENT_STATUS_FR = {
+  FULFILLED: "expédiée",
+  UNFULFILLED: "non expédiée",
+  PARTIALLY_FULFILLED: "partiellement expédiée",
+  RESTOCKED: "remise en stock",
+  PENDING_FULFILLMENT: "en préparation",
+  OPEN: "ouverte",
+  IN_PROGRESS: "en cours",
+  ON_HOLD: "en attente",
+  SCHEDULED: "planifiée",
+};
+
+function formatOrder(o) {
+  const items = (o.lineItems?.edges || []).map(e => ({
+    title: e.node.title,
+    quantity: e.node.quantity,
+    variant: e.node.variantTitle || null,
+    sku: e.node.sku || null,
+  }));
+
+  const financial = o.displayFinancialStatus || "UNKNOWN";
+  const fulfillment = o.displayFulfillmentStatus || "UNKNOWN";
+
+  return {
+    order_number: o.name,
+    created_at: o.createdAt,
+    financial_status: financial,
+    financial_status_fr: FINANCIAL_STATUS_FR[financial] || financial.toLowerCase(),
+    fulfillment_status: fulfillment,
+    fulfillment_status_fr: FULFILLMENT_STATUS_FR[fulfillment] || fulfillment.toLowerCase(),
+    total: parseFloat(o.totalPriceSet?.shopMoney?.amount ?? "0"),
+    currency: o.totalPriceSet?.shopMoney?.currencyCode || "CAD",
+    customer_name: o.customer
+      ? [o.customer.firstName, o.customer.lastName].filter(Boolean).join(" ").trim() || null
+      : null,
+    customer_email: o.customer?.email || null,
+    items,
+    items_count: items.length,
+  };
+}
+
+app.post("/search_shopify_orders", async (req, res) => {
+  const { toolCallId, args } = getVapiToolCall(req);
+  const start = Date.now();
+
+  try {
+    // Accepter order_number, order_id, ou number (l'IA peut envoyer un de ces noms)
+    const raw = String(args.order_number ?? args.order_id ?? args.number ?? "").trim();
+
+    if (!raw) {
+      return res.json(vapiResult(toolCallId, {
+        found: false,
+        count: 0,
+        orders: [],
+        message: "Aucun numéro de commande fourni. Demande au client son numéro de commande.",
+      }));
+    }
+
+    // Normalise : retire tout ce qui n'est pas chiffre/lettre puis ajoute # devant si manquant
+    const cleaned = raw.replace(/^#+/, "").replace(/\s+/g, "");
+    if (!cleaned) {
+      return res.json(vapiResult(toolCallId, {
+        found: false,
+        count: 0,
+        orders: [],
+        original_input: raw,
+        message: "Numéro de commande invalide. Demande au client de répéter clairement.",
+      }));
+    }
+
+    const shopifyQuery = `name:#${cleaned}`;
+
+    const data = await fetchShopifyGraphQL(ORDER_GQL, { q: shopifyQuery });
+    const orders = (data.orders?.edges || []).map(e => formatOrder(e.node));
+    const ms = Date.now() - start;
+
+    console.log(`[search_shopify_orders] input="${raw}" query="${shopifyQuery}" found=${orders.length} ms=${ms}ms`);
+
+    if (orders.length === 0) {
+      return res.json(vapiResult(toolCallId, {
+        found: false,
+        count: 0,
+        orders: [],
+        original_input: raw,
+        normalized_query: shopifyQuery,
+        message: `Aucune commande trouvée avec le numéro #${cleaned}. Demande au client de vérifier son numéro (il se trouve dans le courriel de confirmation).`,
+      }));
+    }
+
+    const main = orders[0];
+    const summary = `Commande ${main.order_number} du ${new Date(main.created_at).toLocaleDateString("fr-CA")} : ${main.financial_status_fr}, ${main.fulfillment_status_fr}. ${main.items_count} article(s) : ${main.items.map(i => `${i.quantity}× ${i.title}`).join(", ")}.`;
+
+    return res.json(vapiResult(toolCallId, {
+      found: true,
+      count: orders.length,
+      orders,
+      original_input: raw,
+      normalized_query: shopifyQuery,
+      message: orders.length === 1
+        ? summary
+        : `${orders.length} commandes correspondent. La plus récente : ${summary}`,
+    }));
+  } catch (err) {
+    const ms = Date.now() - start;
+    console.error(`[search_shopify_orders] ERROR after ${ms}ms:`, err);
+    return res.json(vapiResult(toolCallId, {
+      found: false,
+      count: 0,
+      orders: [],
+      error: err.message,
+      message: "Erreur technique lors de la recherche de la commande. Excuse-toi auprès du client et propose de réessayer.",
+    }));
+  }
 });
 
 

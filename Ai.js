@@ -25,8 +25,15 @@ const SHOPIFY_DOMAIN = process.env.SHOPIFY_DOMAIN;
 const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN;
 const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || "2026-04";
 
+// SMS (Twilio webhook → VAPI Chat → Twilio reply)
+const VAPI_PRIVATE_KEY = process.env.VAPI_PRIVATE_KEY;
+const VAPI_ASSISTANT_ID = process.env.VAPI_ASSISTANT_ID;
+
 if (!SHOPIFY_DOMAIN || !SHOPIFY_TOKEN) {
   console.warn("[BOOT] WARNING: SHOPIFY_DOMAIN or SHOPIFY_TOKEN missing — Shopify calls will fail.");
+}
+if (!VAPI_PRIVATE_KEY || !VAPI_ASSISTANT_ID) {
+  console.warn("[BOOT] WARNING: VAPI_PRIVATE_KEY or VAPI_ASSISTANT_ID missing — SMS will fail.");
 }
 
 
@@ -569,6 +576,140 @@ app.post("/search_shopify_products", async (req, res) => {
 
 
 // ============================================================
+// SMS — Pont Twilio ↔ VAPI Chat
+// Twilio reçoit le SMS → webhook POST /sms/incoming → VAPI Chat API
+// → réponse renvoyée en TwiML, Twilio envoie le SMS au client.
+//
+// Setup côté Twilio : Phone Numbers → ton numéro → Messaging →
+//   "A message comes in" → Webhook → URL = .../sms/incoming (POST)
+//
+// Env requis : VAPI_PRIVATE_KEY (Bearer token API VAPI),
+//              VAPI_ASSISTANT_ID (l'assistant à utiliser pour le SMS)
+// ============================================================
+
+const SMS_SESSION_TTL_MS = 60 * 60 * 1000; // 1h — sessions plus vieilles = abandonnées
+const smsSessions = new Map(); // phoneNumber → { previousChatId, lastSeen }
+
+function getSmsSession(phone) {
+  const s = smsSessions.get(phone);
+  if (!s) return null;
+  if (Date.now() - s.lastSeen > SMS_SESSION_TTL_MS) {
+    smsSessions.delete(phone);
+    return null;
+  }
+  return s;
+}
+
+function setSmsSession(phone, chatId) {
+  smsSessions.set(phone, { previousChatId: chatId, lastSeen: Date.now() });
+}
+
+// Échappe le contenu utilisateur pour insertion sûre dans le XML TwiML
+function escapeXml(s = "") {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+// Appelle l'API VAPI Chat avec continuité de conversation via previousChatId
+async function vapiChat(message, previousChatId = null) {
+  if (!VAPI_PRIVATE_KEY || !VAPI_ASSISTANT_ID) {
+    throw new Error("VAPI credentials missing (VAPI_PRIVATE_KEY / VAPI_ASSISTANT_ID)");
+  }
+
+  const body = { assistantId: VAPI_ASSISTANT_ID, input: message };
+  if (previousChatId) body.previousChatId = previousChatId;
+
+  const response = await fetch("https://api.vapi.ai/chat", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${VAPI_PRIVATE_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`VAPI Chat HTTP ${response.status}: ${text}`);
+  }
+
+  const data = await response.json();
+
+  // VAPI Chat renvoie la réponse dans output[].content (format actuel)
+  // Fallback sur d'anciens formats au cas où
+  const reply =
+    data.output?.[0]?.content ||
+    data.output?.[0]?.message ||
+    data.messages?.find(m => m.role === "assistant")?.content ||
+    data.message ||
+    "";
+
+  return { chatId: data.id, reply, raw: data };
+}
+
+// Endpoint webhook Twilio (form-urlencoded)
+app.post("/sms/incoming", async (req, res) => {
+  const from = req.body?.From;
+  const to = req.body?.To;
+  const body = req.body?.Body;
+  const sid = req.body?.MessageSid;
+
+  console.log(`[sms] incoming from=${from} to=${to} sid=${sid} body="${body}"`);
+
+  // Twilio attend du TwiML quelle que soit l'issue
+  res.set("Content-Type", "text/xml; charset=utf-8");
+
+  if (!from || !body || !body.trim()) {
+    // Pas de contenu → on accuse simplement réception (réponse vide)
+    return res.send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
+  }
+
+  try {
+    const session = getSmsSession(from);
+    const { chatId, reply } = await vapiChat(body.trim(), session?.previousChatId);
+    if (chatId) setSmsSession(from, chatId);
+
+    const finalReply = (reply && reply.trim())
+      || "Désolé, je n'ai pas saisi votre message. Pouvez-vous reformuler? / Sorry, I didn't catch that. Could you rephrase?";
+
+    console.log(`[sms] reply to ${from} chatId=${chatId} reply="${finalReply.slice(0, 100)}..."`);
+
+    return res.send(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<Response><Message>${escapeXml(finalReply)}</Message></Response>`
+    );
+  } catch (err) {
+    console.error(`[sms] ERROR for ${from}:`, err);
+    return res.send(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<Response><Message>${escapeXml(
+        "Désolé, erreur technique. Réessayez dans un instant ou appelez-nous au magasin."
+      )}</Message></Response>`
+    );
+  }
+});
+
+// Diagnostic SMS — hit depuis le navigateur pour vérifier que VAPI Chat répond
+app.get("/diagnose-sms", async (_req, res) => {
+  try {
+    const { chatId, reply, raw } = await vapiChat("Bonjour, ceci est un test SMS depuis le diagnostic.");
+    res.json({
+      ok: true,
+      vapi_assistant_id: VAPI_ASSISTANT_ID,
+      vapi_chat_id: chatId,
+      reply,
+      sessions_active: smsSessions.size,
+      raw_keys: Object.keys(raw || {}),
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+
+// ============================================================
 // HEALTH CHECK
 // ============================================================
 
@@ -579,10 +720,14 @@ app.get("/", (_req, res) => {
     routes: [
       "POST /search_shopify_products",
       "POST /search_shopify_orders",
+      "POST /sms/incoming",
       "GET /diagnose-shopify",
+      "GET /diagnose-sms",
     ],
     shopify_domain_configured: !!SHOPIFY_DOMAIN,
     shopify_token_configured: !!SHOPIFY_TOKEN,
+    vapi_configured: !!(VAPI_PRIVATE_KEY && VAPI_ASSISTANT_ID),
+    sms_sessions_active: smsSessions.size,
     api_version: SHOPIFY_API_VERSION,
   });
 });

@@ -639,14 +639,24 @@ async function vapiChat(message, previousChatId = null) {
 
   const data = await response.json();
 
-  // VAPI Chat renvoie la réponse dans output[].content (format actuel)
-  // Fallback sur d'anciens formats au cas où
-  const reply =
-    data.output?.[0]?.content ||
-    data.output?.[0]?.message ||
-    data.messages?.find(m => m.role === "assistant")?.content ||
-    data.message ||
-    "";
+  // VAPI Chat peut renvoyer plusieurs messages (firstMessage + réponse réelle).
+  // On veut TOUJOURS le DERNIER message assistant — sinon on récupère la salutation
+  // au lieu de la réponse à la question du user.
+  let reply = "";
+
+  if (Array.isArray(data.output) && data.output.length > 0) {
+    const assistantMsgs = data.output.filter(m => m?.role === "assistant");
+    reply = assistantMsgs[assistantMsgs.length - 1]?.content || "";
+  }
+
+  if (!reply && Array.isArray(data.messages) && data.messages.length > 0) {
+    const assistantMsgs = data.messages.filter(m => m?.role === "assistant");
+    reply = assistantMsgs[assistantMsgs.length - 1]?.content || "";
+  }
+
+  if (!reply) {
+    reply = data.message || data.content || "";
+  }
 
   return { chatId: data.id, reply, raw: data };
 }
@@ -670,13 +680,15 @@ app.post("/sms/incoming", async (req, res) => {
 
   try {
     const session = getSmsSession(from);
+    console.log(`[sms] session_lookup phone=${from} previous_chat_id=${session?.previousChatId || "NONE (new conversation)"}`);
+
     const { chatId, reply } = await vapiChat(body.trim(), session?.previousChatId);
     if (chatId) setSmsSession(from, chatId);
 
     const finalReply = (reply && reply.trim())
       || "Désolé, je n'ai pas saisi votre message. Pouvez-vous reformuler? / Sorry, I didn't catch that. Could you rephrase?";
 
-    console.log(`[sms] reply to ${from} chatId=${chatId} reply="${finalReply.slice(0, 100)}..."`);
+    console.log(`[sms] reply to ${from} new_chatId=${chatId} reply="${finalReply.slice(0, 100)}..."`);
 
     return res.send(
       `<?xml version="1.0" encoding="UTF-8"?>\n<Response><Message>${escapeXml(finalReply)}</Message></Response>`
@@ -692,16 +704,19 @@ app.post("/sms/incoming", async (req, res) => {
 });
 
 // Diagnostic SMS — hit depuis le navigateur pour vérifier que VAPI Chat répond
-app.get("/diagnose-sms", async (_req, res) => {
+// Accepte ?msg=... pour tester un message custom
+app.get("/diagnose-sms", async (req, res) => {
+  const msg = req.query.msg || "Avez-vous un filtre Hayward en stock?";
   try {
-    const { chatId, reply, raw } = await vapiChat("Bonjour, ceci est un test SMS depuis le diagnostic.");
+    const { chatId, reply, raw } = await vapiChat(msg);
     res.json({
       ok: true,
+      input_sent: msg,
       vapi_assistant_id: VAPI_ASSISTANT_ID,
       vapi_chat_id: chatId,
-      reply,
+      parsed_reply: reply,
       sessions_active: smsSessions.size,
-      raw_keys: Object.keys(raw || {}),
+      raw_response: raw, // structure complète pour debug
     });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });

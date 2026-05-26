@@ -853,7 +853,13 @@ Règles :
 - Maximum 10 missing_synonyms
 - Sois CONCRET : « ajoute "filtreur" comme synonyme de "filtre" dans Ai.js ligne ~120 » plutôt que « améliorer la recherche »
 - Si rien d'alarmant : retourne quand même un rapport avec top_issues vide et wins remplis
-- N'invente RIEN. Si tu ne vois pas un pattern dans les transcripts fournis, ne le mentionne pas.`;
+- N'invente RIEN. Si tu ne vois pas un pattern dans les transcripts fournis, ne le mentionne pas.
+
+CRITIQUE — FORMAT DE SORTIE :
+- Ta réponse DOIT commencer EXACTEMENT par le caractère "{" (l'ouverture du JSON)
+- Termine ta réponse par "</REPORT>"
+- AUCUN texte d'introduction, AUCUNE analyse en amont, AUCUN markdown, AUCUN bloc de code
+- Si tu écris quoi que ce soit avant le "{", la réponse sera rejetée et l'analyse échouera`;
 
 async function analyzeWithClaude(calls) {
   if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY missing");
@@ -873,9 +879,13 @@ ${c.transcript}
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: COACH_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [
+        { role: "user", content: userMessage },
+        // Prefill : on force Claude à commencer sa réponse par "{" — il ne peut plus faire de préambule
+        { role: "assistant", content: "{" },
+      ],
     }),
   });
 
@@ -885,19 +895,36 @@ ${c.transcript}
   }
 
   const data = await response.json();
-  const fullText = data.content?.[0]?.text || "";
+  // Avec le prefill "{", Claude continue à partir du "{", donc on remet le "{" devant
+  const fullText = "{" + (data.content?.[0]?.text || "");
 
-  // Extraire le JSON entre les balises <REPORT></REPORT>
-  const match = fullText.match(/<REPORT>\s*([\s\S]+?)\s*<\/REPORT>/);
-  if (!match) {
-    throw new Error(`Claude n'a pas produit de bloc <REPORT> parsable. Réponse brute: ${fullText.slice(0, 500)}`);
+  // Parsing : on accepte plusieurs formats au cas où
+  // (a) JSON pur (cas attendu avec prefill)
+  // (b) JSON suivi de </REPORT>
+  // (c) <REPORT>...</REPORT> (fallback ancien format)
+  let jsonStr = null;
+
+  const reportMatch = fullText.match(/<REPORT>\s*([\s\S]+?)\s*<\/REPORT>/);
+  if (reportMatch) {
+    jsonStr = reportMatch[1];
+  } else {
+    // Trouver le 1er "{" et le dernier "}" pour extraire le JSON
+    const firstBrace = fullText.indexOf("{");
+    const lastBrace = fullText.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      jsonStr = fullText.slice(firstBrace, lastBrace + 1);
+    }
+  }
+
+  if (!jsonStr) {
+    throw new Error(`Aucun JSON détecté dans la réponse Claude. Brut: ${fullText.slice(0, 800)}`);
   }
 
   let report;
   try {
-    report = JSON.parse(match[1]);
+    report = JSON.parse(jsonStr);
   } catch (e) {
-    throw new Error(`JSON invalide dans le rapport Claude: ${e.message}. Brut: ${match[1].slice(0, 500)}`);
+    throw new Error(`JSON invalide: ${e.message}. Tentative: ${jsonStr.slice(0, 500)}`);
   }
 
   return { report, cost_usd: data.usage ? ((data.usage.input_tokens * 3 + data.usage.output_tokens * 15) / 1_000_000) : null, raw_text: fullText };

@@ -606,11 +606,6 @@ const ORDER_GQL = `
           displayFinancialStatus
           displayFulfillmentStatus
           totalPriceSet { shopMoney { amount currencyCode } }
-          customer {
-            firstName
-            lastName
-            email
-          }
           lineItems(first: 50) {
             edges {
               node {
@@ -671,10 +666,6 @@ function formatOrder(o) {
     fulfillment_status_fr: FULFILLMENT_STATUS_FR[fulfillment] || fulfillment.toLowerCase(),
     total: parseFloat(o.totalPriceSet?.shopMoney?.amount ?? "0"),
     currency: o.totalPriceSet?.shopMoney?.currencyCode || "CAD",
-    customer_name: o.customer
-      ? [o.customer.firstName, o.customer.lastName].filter(Boolean).join(" ").trim() || null
-      : null,
-    customer_email: o.customer?.email || null,
     items,
     items_count: items.length,
   };

@@ -685,8 +685,11 @@ app.post("/search_shopify_orders", async (req, res) => {
   const start = Date.now();
 
   try {
-    // Accepter order_number, order_id, ou number (l'IA peut envoyer un de ces noms)
-    const raw = String(args.order_number ?? args.order_id ?? args.number ?? "").trim();
+    // Accepter n'importe lequel des noms de champ que l'IA pourrait utiliser
+    const raw = String(
+      args.order_number ?? args.order_id ?? args.number ??
+      args.query ?? args.q ?? args.order ?? ""
+    ).trim();
 
     if (!raw) {
       return res.json(vapiResult(toolCallId, {

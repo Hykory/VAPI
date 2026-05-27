@@ -2021,13 +2021,15 @@ app.post("/search_shopify_orders", async (req, res) => {
     // Commande trouvée → on construit un résumé lisible pour l'IA
     const main = orders[0];
 
-    // Bout de phrase sur l'expédition + ETA si la commande a été shippée
-    // Toutes les dates en format YYYY-MM-DD pour que l'IA les lise telles quelles
+    // Bout de phrase sur l'expédition + ETA si la commande a été shippée.
+    // On NE met PAS le tracking_number dans le résumé texte : il est trop long
+    // pour être dicté en voix. L'IA va le récupérer depuis le JSON (champs
+    // `tracking_number` + `tracking_url`) et l'utiliser SEULEMENT en SMS.
     let shippingPart = "";
     if (main.shipped_at) {
       shippingPart = ` Expédiée le ${formatDate(main.shipped_at)}`;
       if (main.eta_human_fr) shippingPart += `, ${main.eta_human_fr}`;
-      if (main.tracking_number) shippingPart += `. Numéro de suivi : ${main.tracking_number}`;
+      if (main.tracking_number) shippingPart += `. Suivi disponible`;
       shippingPart += ".";
     }
 

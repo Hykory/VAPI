@@ -7,6 +7,7 @@ import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
+import crypto from "crypto";
 
 dotenv.config();
 
@@ -37,6 +38,18 @@ const REPORT_EMAIL_FROM = process.env.REPORT_EMAIL_FROM || "Barracuda Coach <onb
 const ANALYSIS_SECRET = process.env.ANALYSIS_SECRET || "change-me";
 const ANALYSIS_TIMEZONE = process.env.ANALYSIS_TIMEZONE || "America/Toronto";
 
+// Mapping UUID assistant VAPI → nom lisible. JSON dans env var.
+// Ex: VAPI_ASSISTANTS_MAP='{"7f9e...":"Accueil","dad1...":"FR","3f65...":"EN"}'
+let VAPI_ASSISTANTS_MAP = {};
+try {
+  VAPI_ASSISTANTS_MAP = process.env.VAPI_ASSISTANTS_MAP
+    ? JSON.parse(process.env.VAPI_ASSISTANTS_MAP)
+    : {};
+} catch (err) {
+  console.warn("[BOOT] VAPI_ASSISTANTS_MAP invalide (JSON malformé) — split par assistant désactivé:", err.message);
+  VAPI_ASSISTANTS_MAP = {};
+}
+
 if (!SHOPIFY_DOMAIN || !SHOPIFY_TOKEN) {
   console.warn("[BOOT] WARNING: SHOPIFY_DOMAIN or SHOPIFY_TOKEN missing — Shopify calls will fail.");
 }
@@ -45,6 +58,38 @@ if (!VAPI_PRIVATE_KEY || !VAPI_ASSISTANT_ID) {
 }
 if (!ANTHROPIC_API_KEY || !RESEND_API_KEY || !REPORT_EMAIL_TO) {
   console.warn("[BOOT] WARNING: ANTHROPIC_API_KEY / RESEND_API_KEY / REPORT_EMAIL_TO missing — weekly analysis will fail.");
+}
+
+
+// ============================================================
+// EVENT LOGGING — in-memory, drainé par le coach hebdo dans l'email
+// Volatile : un redémarrage Railway = events perdus. Acceptable pour
+// le volume actuel (~20 calls/jour) et le coach hebdo.
+// ============================================================
+
+const EVENTS = [];
+const EVENTS_MAX = 10_000;
+
+function logEvent(type, meta = {}) {
+  EVENTS.push({ ts: new Date().toISOString(), type, ...meta });
+  if (EVENTS.length > EVENTS_MAX) {
+    EVENTS.splice(0, EVENTS.length - EVENTS_MAX); // FIFO drop
+  }
+}
+
+function drainEvents() {
+  const snapshot = EVENTS.slice();
+  EVENTS.length = 0;
+  return snapshot;
+}
+
+function peekEvents() {
+  return EVENTS.slice();
+}
+
+// Hash sha256 tronqué — assez pour grouper sessions sans stocker PII en clair
+function hashPhone(phone) {
+  return crypto.createHash("sha256").update(String(phone || "")).digest("hex").slice(0, 12);
 }
 
 
@@ -546,6 +591,14 @@ app.post("/search_shopify_products", async (req, res) => {
 
     console.log(`[search_shopify_products] level=${level} count=${formatted.length} ms=${ms}ms query="${finalQuery}"`);
 
+    logEvent("shopify_product_search", {
+      query: args.query || "",
+      results_count: formatted.length,
+      cascade_level: level,
+      widened,
+      ms,
+    });
+
     const response = {
       count: formatted.length,
       products: formatted,
@@ -572,6 +625,7 @@ app.post("/search_shopify_products", async (req, res) => {
   } catch (err) {
     const ms = Date.now() - start;
     console.error(`[search_shopify_products] ERROR after ${ms}ms:`, err);
+    logEvent("error", { where: "search_shopify_products", message: err.message, ms });
     // VAPI: on renvoie 200 avec error dans result pour que l'IA puisse l'expliquer au client
     return res.json(vapiResult(toolCallId, {
       count: 0,
@@ -678,6 +732,8 @@ app.post("/sms/incoming", async (req, res) => {
   const to = req.body?.To;
   const body = req.body?.Body;
   const sid = req.body?.MessageSid;
+  const smsStart = Date.now();
+  const phoneHash = hashPhone(from);
 
   console.log(`[sms] incoming from=${from} to=${to} sid=${sid} body="${body}"`);
 
@@ -693,6 +749,12 @@ app.post("/sms/incoming", async (req, res) => {
     const session = getSmsSession(from);
     console.log(`[sms] session_lookup phone=${from} previous_chat_id=${session?.previousChatId || "NONE (new conversation)"}`);
 
+    logEvent("sms_received", {
+      phone_hash: phoneHash,
+      body_len: body.length,
+      is_new_session: !session,
+    });
+
     const { chatId, reply } = await vapiChat(body.trim(), session?.previousChatId);
     if (chatId) setSmsSession(from, chatId);
 
@@ -701,11 +763,23 @@ app.post("/sms/incoming", async (req, res) => {
 
     console.log(`[sms] reply to ${from} new_chatId=${chatId} reply="${finalReply.slice(0, 100)}..."`);
 
+    logEvent("sms_replied", {
+      phone_hash: phoneHash,
+      latency_ms: Date.now() - smsStart,
+      reply_len: finalReply.length,
+    });
+
     return res.send(
       `<?xml version="1.0" encoding="UTF-8"?>\n<Response><Message>${escapeXml(finalReply)}</Message></Response>`
     );
   } catch (err) {
     console.error(`[sms] ERROR for ${from}:`, err);
+    logEvent("error", {
+      where: "sms_incoming",
+      message: err.message,
+      phone_hash: phoneHash,
+      latency_ms: Date.now() - smsStart,
+    });
     return res.send(
       `<?xml version="1.0" encoding="UTF-8"?>\n<Response><Message>${escapeXml(
         "Désolé, erreur technique. Réessayez dans un instant ou appelez-nous au magasin."
@@ -792,6 +866,9 @@ function compactCallForAnalysis(call) {
   // Réduit l'objet à l'essentiel pour économiser des tokens
   return {
     id: call.id,
+    assistant_id: call.assistantId || null,
+    assistant_name: VAPI_ASSISTANTS_MAP[call.assistantId] || null,
+    started_at: call.startedAt || null,
     duration_sec: call.endedAt && call.startedAt
       ? Math.round((new Date(call.endedAt) - new Date(call.startedAt)) / 1000)
       : null,
@@ -801,6 +878,143 @@ function compactCallForAnalysis(call) {
       .filter(m => m.role === "tool_calls" || m.toolCalls)
       .map(m => m.toolCalls?.[0]?.function?.name || m.name)
       .filter(Boolean),
+  };
+}
+
+// --- Stats agrégées calculées DEPUIS la liste brute des appels VAPI ---
+function computeCallStats(allCalls) {
+  const total = allCalls.length;
+  if (total === 0) {
+    return {
+      total_calls: 0,
+      avg_duration_sec: 0,
+      total_duration_sec: 0,
+      by_assistant: {},
+      by_ended_reason: {},
+      by_hour_local: {},
+      short_calls_under_30s: 0,
+      long_calls_over_5min: 0,
+    };
+  }
+
+  const durations = [];
+  const byAssistant = {};
+  const byEndedReason = {};
+  const byHour = {};
+  let short30 = 0;
+  let long5 = 0;
+
+  for (const c of allCalls) {
+    const dur = c.endedAt && c.startedAt
+      ? (new Date(c.endedAt) - new Date(c.startedAt)) / 1000
+      : 0;
+    if (dur > 0) durations.push(dur);
+    if (dur > 0 && dur < 30) short30++;
+    if (dur > 300) long5++;
+
+    const aName = VAPI_ASSISTANTS_MAP[c.assistantId] || c.assistantId || "unknown";
+    byAssistant[aName] = (byAssistant[aName] || 0) + 1;
+
+    const reason = c.endedReason || "unknown";
+    byEndedReason[reason] = (byEndedReason[reason] || 0) + 1;
+
+    if (c.startedAt) {
+      try {
+        const local = new Date(new Date(c.startedAt).toLocaleString("en-US", { timeZone: ANALYSIS_TIMEZONE }));
+        const hour = local.getHours();
+        byHour[hour] = (byHour[hour] || 0) + 1;
+      } catch { /* skip bad date */ }
+    }
+  }
+
+  const totalDur = durations.reduce((a, b) => a + b, 0);
+  const avgDur = durations.length > 0 ? totalDur / durations.length : 0;
+
+  return {
+    total_calls: total,
+    avg_duration_sec: Math.round(avgDur),
+    total_duration_sec: Math.round(totalDur),
+    by_assistant: byAssistant,
+    by_ended_reason: byEndedReason,
+    by_hour_local: byHour,
+    short_calls_under_30s: short30,
+    long_calls_over_5min: long5,
+  };
+}
+
+// --- Stats agrégées calculées DEPUIS les events in-memory drainés ---
+function computeEventStats(events) {
+  const productSearches = events.filter(e => e.type === "shopify_product_search");
+  const orderSearches = events.filter(e => e.type === "shopify_order_search");
+  const smsReceived = events.filter(e => e.type === "sms_received");
+  const smsReplied = events.filter(e => e.type === "sms_replied");
+  const errors = events.filter(e => e.type === "error");
+
+  // Top queries Shopify (par fréquence)
+  const queryCount = {};
+  const cascadeLevelCount = {};
+  let zeroResultQueries = [];
+  for (const e of productSearches) {
+    const q = (e.query || "").trim().toLowerCase();
+    if (q) queryCount[q] = (queryCount[q] || 0) + 1;
+    cascadeLevelCount[e.cascade_level] = (cascadeLevelCount[e.cascade_level] || 0) + 1;
+    if (e.results_count === 0 && q) zeroResultQueries.push(q);
+  }
+  // Dédupliquer avec compte
+  const zeroResultCount = {};
+  for (const q of zeroResultQueries) zeroResultCount[q] = (zeroResultCount[q] || 0) + 1;
+
+  const topQueries = Object.entries(queryCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 20)
+    .map(([query, count]) => ({ query, count }));
+
+  const topZeroResultQueries = Object.entries(zeroResultCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(([query, count]) => ({ query, count }));
+
+  // SMS : sessions uniques (via phone_hash distincts dans sms_received)
+  const uniquePhones = new Set(smsReceived.map(e => e.phone_hash).filter(Boolean));
+  const newSessions = smsReceived.filter(e => e.is_new_session).length;
+  const latencies = smsReplied.map(e => e.latency_ms).filter(n => typeof n === "number");
+  const avgSmsLatency = latencies.length > 0
+    ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length)
+    : 0;
+
+  // Orders : taux trouvé
+  const ordersFound = orderSearches.filter(e => e.found).length;
+
+  // Errors par where
+  const errorsByWhere = {};
+  for (const e of errors) {
+    const w = e.where || "unknown";
+    errorsByWhere[w] = (errorsByWhere[w] || 0) + 1;
+  }
+
+  return {
+    product_searches: {
+      total: productSearches.length,
+      top_queries: topQueries,
+      top_zero_result_queries: topZeroResultQueries,
+      cascade_level_distribution: cascadeLevelCount,
+    },
+    order_searches: {
+      total: orderSearches.length,
+      found: ordersFound,
+      not_found: orderSearches.length - ordersFound,
+    },
+    sms: {
+      received: smsReceived.length,
+      replied: smsReplied.length,
+      unique_phones: uniquePhones.size,
+      new_sessions: newSessions,
+      avg_latency_ms: avgSmsLatency,
+    },
+    errors: {
+      total: errors.length,
+      by_where: errorsByWhere,
+    },
   };
 }
 
@@ -888,12 +1102,19 @@ const COACH_TOOL_SCHEMA = {
   }
 };
 
-async function analyzeWithClaude(calls) {
+async function analyzeWithClaude(calls, statsContext = null) {
   if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY missing");
 
-  const userMessage = `Voici ${calls.length} transcripts d'appels intéressants de la semaine écoulée. Analyse-les et produis le rapport JSON.
+  const statsBlock = statsContext
+    ? `\nMÉTRIQUES OBJECTIVES DE LA SEMAINE (toute la base, pas juste les appels ci-dessous) :
+${JSON.stringify(statsContext, null, 2)}
 
-${calls.map((c, i) => `--- APPEL ${i + 1} (id: ${c.id}, durée: ${c.duration_sec}s, fin: ${c.ended_reason}, tools: ${c.tool_calls_made.join(", ") || "aucun"}) ---
+Utilise ces métriques pour contextualiser ton analyse. Par exemple : si "top_zero_result_queries" contient "filtreur" 6 fois, c'est probablement un synonyme manquant majeur.\n`
+    : "";
+
+  const userMessage = `Voici ${calls.length} transcripts d'appels intéressants de la semaine écoulée. Analyse-les et produis le rapport JSON.
+${statsBlock}
+${calls.map((c, i) => `--- APPEL ${i + 1} (id: ${c.id}, assistant: ${c.assistant_name || c.assistant_id || "?"}, durée: ${c.duration_sec}s, fin: ${c.ended_reason}, tools: ${c.tool_calls_made.join(", ") || "aucun"}) ---
 ${c.transcript}
 `).join("\n\n")}`;
 
@@ -960,14 +1181,88 @@ function reportToHtml(report, meta) {
   const gapsList = (report.knowledge_gaps || []).map(g => `<li>${escapeHtml(g)}</li>`).join("");
   const winsList = (report.wins || []).map(w => `<li>${escapeHtml(w)}</li>`).join("");
 
+  // Section métriques objectives
+  const stats = meta.stats || null;
+  let metricsHtml = "";
+  if (stats) {
+    const c = stats.calls;
+    const e = stats.events;
+
+    const assistantRows = Object.entries(c.by_assistant || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, n]) => `<li>${escapeHtml(name)} : <strong>${n}</strong> appel(s)</li>`).join("");
+
+    const reasonRows = Object.entries(c.by_ended_reason || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([reason, n]) => `<li><code>${escapeHtml(reason)}</code> : ${n}</li>`).join("");
+
+    const peakHours = Object.entries(c.by_hour_local || {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([h, n]) => `${h}h : ${n}`).join(" · ");
+
+    const topQ = (e.product_searches?.top_queries || [])
+      .map(q => `<li><code>${escapeHtml(q.query)}</code> — ${q.count}×</li>`).join("");
+    const zeroQ = (e.product_searches?.top_zero_result_queries || [])
+      .map(q => `<li><code>${escapeHtml(q.query)}</code> — ${q.count}× <em>(0 résultat)</em></li>`).join("");
+    const cascade = Object.entries(e.product_searches?.cascade_level_distribution || {})
+      .map(([lvl, n]) => `<code>${escapeHtml(lvl)}</code>: ${n}`).join(" · ");
+
+    const errorRows = Object.entries(e.errors?.by_where || {})
+      .map(([where, n]) => `<li><code>${escapeHtml(where)}</code> : ${n}</li>`).join("");
+
+    metricsHtml = `
+      <h2>📊 Métriques de la semaine</h2>
+
+      <h3 style="margin-bottom:4px;">📞 Appels VAPI</h3>
+      <p style="margin-top:0;">
+        <strong>${c.total_calls}</strong> appels totaux ·
+        durée moy. <strong>${c.avg_duration_sec}s</strong> ·
+        temps total ${Math.round(c.total_duration_sec / 60)} min<br>
+        ${c.short_calls_under_30s} appels &lt;30s (raccrochage rapide) ·
+        ${c.long_calls_over_5min} appels &gt;5min (client s'enlise)
+      </p>
+      ${assistantRows ? `<p style="margin:4px 0;"><strong>Par assistant :</strong></p><ul style="margin-top:0;">${assistantRows}</ul>` : ""}
+      ${reasonRows ? `<p style="margin:4px 0;"><strong>Raisons de fin :</strong></p><ul style="margin-top:0;">${reasonRows}</ul>` : ""}
+      ${peakHours ? `<p><strong>Heures de pic (TZ ${escapeHtml(ANALYSIS_TIMEZONE)}) :</strong> ${peakHours}</p>` : ""}
+
+      <h3 style="margin-bottom:4px;">🔍 Recherches Shopify</h3>
+      <p style="margin-top:0;">
+        <strong>${e.product_searches?.total || 0}</strong> recherches produits ·
+        <strong>${e.order_searches?.total || 0}</strong> recherches commandes
+        (${e.order_searches?.found || 0} trouvées / ${e.order_searches?.not_found || 0} non trouvées)
+      </p>
+      ${cascade ? `<p><strong>Niveaux de cascade :</strong> ${cascade}</p>` : ""}
+      ${topQ ? `<p style="margin:4px 0;"><strong>Top requêtes :</strong></p><ul style="margin-top:0;">${topQ}</ul>` : ""}
+      ${zeroQ ? `<p style="margin:4px 0;"><strong>⚠️ Requêtes sans résultat (= synonymes manquants ?) :</strong></p><ul style="margin-top:0;">${zeroQ}</ul>` : ""}
+
+      <h3 style="margin-bottom:4px;">💬 SMS</h3>
+      <p style="margin-top:0;">
+        ${e.sms?.received || 0} SMS reçus ·
+        ${e.sms?.unique_phones || 0} numéros uniques ·
+        ${e.sms?.new_sessions || 0} nouvelles sessions ·
+        latence moy. ${e.sms?.avg_latency_ms || 0}ms
+      </p>
+
+      ${e.errors?.total > 0 ? `
+      <h3 style="margin-bottom:4px;">🚨 Erreurs</h3>
+      <p style="margin-top:0;"><strong>${e.errors.total}</strong> erreur(s) totales</p>
+      <ul style="margin-top:0;">${errorRows}</ul>` : ""}
+
+      <hr style="margin: 24px 0;">
+    `;
+  }
+
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 720px; margin: auto; color: #1a1a1a;">
       <h1 style="color: #0a6cb9;">🏊 Rapport hebdomadaire — Barracuda Coach IA</h1>
       <p><strong>Période :</strong> ${escapeHtml(report.period)}<br>
-         <strong>Appels analysés :</strong> ${escapeHtml(report.total_calls_analyzed)} (sur ${meta.total_fetched} appels totaux)<br>
+         <strong>Appels analysés en détail :</strong> ${escapeHtml(report.total_calls_analyzed)} (sur ${meta.total_fetched} appels totaux)<br>
          <strong>Coût analyse :</strong> ${meta.cost_usd ? "$" + meta.cost_usd.toFixed(4) : "N/A"} USD</p>
 
-      <h2>📊 Résumé global</h2>
+      ${metricsHtml}
+
+      <h2>📝 Résumé global (Claude)</h2>
       <p>${escapeHtml(report.global_summary)}</p>
 
       ${report.top_issues?.length ? `<h2>🎯 Top problèmes à corriger</h2><ol>${issuesList}</ol>` : ""}
@@ -980,7 +1275,7 @@ function reportToHtml(report, meta) {
 
       <hr style="margin-top: 32px;">
       <p style="color: #888; font-size: 12px;">
-        Rapport généré automatiquement à partir de ${meta.total_fetched} appels VAPI.<br>
+        Rapport généré automatiquement à partir de ${meta.total_fetched} appels VAPI + events in-memory.<br>
         Tu peux appliquer manuellement les fixes proposés au prompt VAPI ou à <code>Ai.js</code>.<br>
         Pour relancer une analyse à tout moment : <code>POST /weekly-analysis?secret=...</code>
       </p>
@@ -1027,40 +1322,65 @@ async function runWeeklyAnalysis() {
   const allCalls = await fetchVapiCalls(startDate, endDate);
   console.log(`[coach] Fetched ${allCalls.length} calls`);
 
-  if (allCalls.length === 0) {
-    console.log(`[coach] No calls this period, skipping analysis.`);
-    return { skipped: true, reason: "no_calls" };
+  // Snapshot des events SANS drain (drain seulement après email envoyé avec succès)
+  const eventsSnapshot = peekEvents();
+  const callStats = computeCallStats(allCalls);
+  const eventStats = computeEventStats(eventsSnapshot);
+  const stats = { calls: callStats, events: eventStats };
+  console.log(`[coach] Stats: ${callStats.total_calls} calls, ${eventsSnapshot.length} events captured`);
+
+  const meta = {
+    total_fetched: allCalls.length,
+    cost_usd: 0,
+    stats,
+    period: `${startDate.toISOString().split("T")[0]} → ${endDate.toISOString().split("T")[0]}`,
+  };
+
+  if (allCalls.length === 0 && eventsSnapshot.length === 0) {
+    console.log(`[coach] No calls and no events this period, skipping analysis.`);
+    return { skipped: true, reason: "no_activity" };
   }
 
   const interesting = allCalls.filter(isInterestingCall).map(compactCallForAnalysis);
   console.log(`[coach] ${interesting.length} interesting calls after pre-filtering`);
 
-  // Si rien d'intéressant, on envoie quand même un mini-rapport positif
+  let report;
+  let cost_usd = 0;
+
   if (interesting.length === 0) {
-    const emptyReport = {
-      period: `${startDate.toISOString().split("T")[0]} → ${endDate.toISOString().split("T")[0]}`,
+    // Pas d'appel problématique : mini-rapport positif, on envoie quand même les métriques
+    report = {
+      period: meta.period,
       total_calls_analyzed: 0,
-      global_summary: `Aucun appel problématique cette semaine sur ${allCalls.length} appels totaux. L'IA semble bien performer.`,
+      global_summary: allCalls.length > 0
+        ? `Aucun appel problématique cette semaine sur ${allCalls.length} appels totaux. L'IA semble bien performer.`
+        : `Aucun appel cette semaine. Activité SMS et recherches Shopify reportées ci-dessous.`,
       top_issues: [],
       missing_synonyms: [],
       knowledge_gaps: [],
       hallucinations_detected: [],
-      wins: [`${allCalls.length} appels gérés sans signaux d'alerte`],
+      wins: allCalls.length > 0 ? [`${allCalls.length} appels gérés sans signaux d'alerte`] : [],
     };
-    await sendEmailReport(emptyReport, { total_fetched: allCalls.length, cost_usd: 0 });
-    return { sent: true, calls_analyzed: 0, cost_usd: 0 };
+  } else {
+    const result = await analyzeWithClaude(interesting, stats);
+    report = result.report;
+    cost_usd = result.cost_usd;
+    console.log(`[coach] Claude analysis done. Cost: $${cost_usd?.toFixed(4)}`);
   }
 
-  const { report, cost_usd } = await analyzeWithClaude(interesting);
-  console.log(`[coach] Claude analysis done. Cost: $${cost_usd?.toFixed(4)}`);
-
-  await sendEmailReport(report, { total_fetched: allCalls.length, cost_usd });
+  meta.cost_usd = cost_usd;
+  await sendEmailReport(report, meta);
   console.log(`[coach] Email sent to ${REPORT_EMAIL_TO}`);
+
+  // Drain APRÈS succès email — si crash avant ici, on garde les events pour la prochaine fois
+  const drained = drainEvents();
+  console.log(`[coach] Drained ${drained.length} events after successful email`);
 
   return {
     sent: true,
     calls_fetched: allCalls.length,
     calls_analyzed: interesting.length,
+    events_drained: drained.length,
     cost_usd,
     report,
   };
@@ -1118,13 +1438,28 @@ app.get("/", (_req, res) => {
       "POST /weekly-analysis",
       "GET /diagnose-shopify",
       "GET /diagnose-sms",
+      "GET /events/stats",
     ],
     shopify_domain_configured: !!SHOPIFY_DOMAIN,
     shopify_token_configured: !!SHOPIFY_TOKEN,
     vapi_configured: !!(VAPI_PRIVATE_KEY && VAPI_ASSISTANT_ID),
     coach_configured: !!(ANTHROPIC_API_KEY && RESEND_API_KEY && REPORT_EMAIL_TO),
+    assistants_map_loaded: Object.keys(VAPI_ASSISTANTS_MAP).length,
     sms_sessions_active: smsSessions.size,
+    events_buffered: EVENTS.length,
     api_version: SHOPIFY_API_VERSION,
+  });
+});
+
+// Stats live des events in-memory (depuis le dernier drain par le coach)
+// Pratique pour debug : voir en temps réel les recherches, erreurs, SMS de la journée.
+app.get("/events/stats", (_req, res) => {
+  const events = peekEvents();
+  res.json({
+    ok: true,
+    events_buffered: events.length,
+    buffered_since: events[0]?.ts || null,
+    stats: computeEventStats(events),
   });
 });
 
@@ -1252,6 +1587,13 @@ app.post("/search_shopify_orders", async (req, res) => {
 
     console.log(`[search_shopify_orders] input="${raw}" query="${shopifyQuery}" found=${orders.length} ms=${ms}ms`);
 
+    logEvent("shopify_order_search", {
+      order_number: cleaned,
+      found: orders.length > 0,
+      count: orders.length,
+      ms,
+    });
+
     if (orders.length === 0) {
       return res.json(vapiResult(toolCallId, {
         found: false,
@@ -1279,6 +1621,7 @@ app.post("/search_shopify_orders", async (req, res) => {
   } catch (err) {
     const ms = Date.now() - start;
     console.error(`[search_shopify_orders] ERROR after ${ms}ms:`, err);
+    logEvent("error", { where: "search_shopify_orders", message: err.message, ms });
     return res.json(vapiResult(toolCallId, {
       found: false,
       count: 0,

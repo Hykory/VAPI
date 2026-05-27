@@ -17,3 +17,20 @@
     "node": ">=18.0.0"
   }
 }
+
+
+{
+  "name": "barracuda-ai-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "Ai.js",
+  "scripts": {
+    "start": "node Ai.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.2"
+  }
+}

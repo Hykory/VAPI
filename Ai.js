@@ -875,15 +875,18 @@ async function vapiChat(message, previousChatId = null, channel = "sms") {
     throw new Error("VAPI credentials missing (VAPI_PRIVATE_KEY / VAPI_ASSISTANT_ID)");
   }
 
+  // On injecte le canal directement dans le texte du message d'entrée.
+  // Pourquoi pas via assistantOverrides.variableValues : VAPI Chat n'applique
+  // pas les overrides quand on continue une session avec previousChatId
+  // (les overrides du 1er call sont figés). Le préfixe inline est garanti
+  // d'arriver à l'agent dans son contexte de la conversation courante.
+  const channelHint = channel === "sms"
+    ? "[CANAL: SMS — tu communiques par texto, pas par voix]\n\n"
+    : "";
+
   const body = {
     assistantId: VAPI_ASSISTANT_ID,
-    input: message,
-    // On injecte le canal pour que le prompt VAPI puisse adapter le format
-    // de réponse (voix : pas d'URL ; SMS : URL cliquable OK).
-    // Référence dans le prompt VAPI avec {{channel}}.
-    assistantOverrides: {
-      variableValues: { channel },
-    },
+    input: channelHint + message,
   };
   if (previousChatId) body.previousChatId = previousChatId;
 

@@ -1867,12 +1867,15 @@ function addBusinessDays(date, days) {
   return d;
 }
 
-// Formate une date en français QC : « lundi 2 juin »
-function formatDateFr(date) {
-  return new Date(date).toLocaleDateString("fr-CA", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
+// Formate une date au format ISO court YYYY-MM-DD (timezone Toronto)
+// On force ce format pour que l'IA lise les dates de façon prévisible.
+// Le prompt VAPI doit dire à l'agent de NE PAS convertir ces dates en mots.
+function formatDateIso(date) {
+  return new Date(date).toLocaleDateString("en-CA", {
+    timeZone: "America/Toronto",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   });
 }
 
@@ -1887,7 +1890,7 @@ function computeEta(fulfillment) {
     return {
       eta_low: eta.toISOString(),
       eta_high: eta.toISOString(),
-      eta_human_fr: `arrivée prévue le ${formatDateFr(eta)}`,
+      eta_human_fr: `arrivée prévue le ${formatDateIso(eta)}`,
       source: "shopify",
     };
   }
@@ -1905,7 +1908,7 @@ function computeEta(fulfillment) {
   return {
     eta_low: etaLow.toISOString(),
     eta_high: etaHigh.toISOString(),
-    eta_human_fr: `arrivée prévue entre le ${formatDateFr(etaLow)} et le ${formatDateFr(etaHigh)} via ${carrierLabel}`,
+    eta_human_fr: `arrivée prévue entre ${formatDateIso(etaLow)} et ${formatDateIso(etaHigh)} via ${carrierLabel}`,
     source: "estimated",
   };
 }
@@ -2018,16 +2021,16 @@ app.post("/search_shopify_orders", async (req, res) => {
     const main = orders[0];
 
     // Bout de phrase sur l'expédition + ETA si la commande a été shippée
+    // Toutes les dates en format YYYY-MM-DD pour que l'IA les lise telles quelles
     let shippingPart = "";
     if (main.shipped_at) {
-      const shippedDate = new Date(main.shipped_at).toLocaleDateString("fr-CA");
-      shippingPart = ` Expédiée le ${shippedDate}`;
+      shippingPart = ` Expédiée le ${formatDateIso(main.shipped_at)}`;
       if (main.eta_human_fr) shippingPart += `, ${main.eta_human_fr}`;
       if (main.tracking_number) shippingPart += `. Numéro de suivi : ${main.tracking_number}`;
       shippingPart += ".";
     }
 
-    const summary = `Commande ${main.order_number} du ${new Date(main.created_at).toLocaleDateString("fr-CA")} : ${main.financial_status_fr}, ${main.fulfillment_status_fr}. ${main.items_count} article(s) : ${main.items.map(i => `${i.quantity}× ${i.title}`).join(", ")}.${shippingPart}`;
+    const summary = `Commande ${main.order_number} du ${formatDateIso(main.created_at)} : ${main.financial_status_fr}, ${main.fulfillment_status_fr}. ${main.items_count} article(s) : ${main.items.map(i => `${i.quantity}× ${i.title}`).join(", ")}.${shippingPart}`;
 
     return res.json(vapiResult(toolCallId, {
       found: true,

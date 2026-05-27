@@ -1870,17 +1870,36 @@ function addBusinessDays(date, days) {
   return d;
 }
 
-// Formate une date pour lecture vocale + SMS : « 26 mai 2026 »
-// Pourquoi pas ISO YYYY-MM-DD : le TTS le lit « deux mille vingt-six tiret zéro
-// cinq tiret vingt-six » — imprononçable. Le format « 26 mai 2026 » est lu
-// « vingt-six mai deux mille vingt-six », naturel en français parlé.
+// Formate une date pour lecture vocale + SMS : « 26 mai deux mille vingt-six »
+//
+// Pourquoi l'année en lettres : le TTS multilingue (Cartesia / ElevenLabs avec
+// voix québécoise) lit souvent les nombres à 4 chiffres en anglais
+// (« 2026 » → « twenty twenty-six »). Forcer l'année en lettres françaises
+// garantit la prononciation FR. Le jour reste en chiffres (« 26 » est lu
+// « vingt-six » correctement).
+const YEAR_FR = {
+  2024: "deux mille vingt-quatre",
+  2025: "deux mille vingt-cinq",
+  2026: "deux mille vingt-six",
+  2027: "deux mille vingt-sept",
+  2028: "deux mille vingt-huit",
+  2029: "deux mille vingt-neuf",
+  2030: "deux mille trente",
+};
+
 function formatDate(date) {
-  return new Date(date).toLocaleDateString("fr-CA", {
+  // Composantes en timezone Toronto pour éviter dérive UTC
+  const parts = new Date(date).toLocaleDateString("fr-CA", {
     timeZone: "America/Toronto",
     day: "numeric",
     month: "long",
     year: "numeric",
-  });
+  }).split(" ");
+  // fr-CA → ["26", "mai", "2026"]
+  const [day, month, yearStr] = parts;
+  const year = parseInt(yearStr, 10);
+  const yearWords = YEAR_FR[year] || yearStr; // fallback : chiffres si année hors table
+  return `${day} ${month} ${yearWords}`;
 }
 
 // Calcule l'ETA pour un fulfillment Shopify.

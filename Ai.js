@@ -1,55 +1,111 @@
-// ============================================================
-// Ai.js — VAPI ↔ Shopify bridge (Railway, Node ES Modules)
-// Route principale : POST /search_shopify_products
-// ============================================================
+// ╔════════════════════════════════════════════════════════════════════════╗
+// ║                                                                        ║
+// ║   Ai.js — Pont entre l'agent VAPI (téléphone/SMS) et Shopify           ║
+// ║   Barracuda Piscines & Spas — Gatineau, QC                             ║
+// ║                                                                        ║
+// ║   À QUOI SERT CE FICHIER (en deux phrases) :                           ║
+// ║   1. C'est le « cerveau intermédiaire » entre l'IA qui parle aux       ║
+// ║      clients (par téléphone ou SMS) et la boutique Shopify.            ║
+// ║   2. Quand l'IA a besoin de chercher un produit ou une commande,       ║
+// ║      elle appelle ce serveur, qui interroge Shopify et lui répond.     ║
+// ║                                                                        ║
+// ║   CE QUE FAIT CE FICHIER, DANS L'ORDRE :                               ║
+// ║   ① Démarre un serveur web (Express) sur Railway                       ║
+// ║   ② Expose des endpoints (= adresses web) que VAPI et Twilio appellent ║
+// ║      • POST /search_shopify_products  — l'IA cherche un produit        ║
+// ║      • POST /search_shopify_orders    — l'IA cherche une commande      ║
+// ║      • POST /sms/incoming             — Twilio envoie un SMS reçu      ║
+// ║      • POST /weekly-analysis          — déclenche le coach hebdo       ║
+// ║      • GET  /events/stats             — voir les stats live            ║
+// ║      • GET  /diagnose-shopify         — test rapide de Shopify         ║
+// ║      • GET  /diagnose-sms             — test rapide de VAPI Chat       ║
+// ║      • GET  /                         — page d'accueil santé           ║
+// ║   ③ Enregistre dans la mémoire chaque action importante (= « events ») ║
+// ║      pour produire les stats du rapport hebdo                          ║
+// ║   ④ Tous les dimanches 23h, un « coach IA » lit les appels de la       ║
+// ║      semaine et envoie un rapport courriel avec ce qui va bien/mal     ║
+// ║                                                                        ║
+// ║   VOCABULAIRE RAPIDE :                                                 ║
+// ║   • Endpoint = une « adresse web » que d'autres systèmes peuvent       ║
+// ║     appeler (ex: POST /search_shopify_products)                        ║
+// ║   • Tool VAPI = fonction que l'IA vocale peut appeler quand elle       ║
+// ║     en a besoin (recherche produit, recherche commande, etc.)          ║
+// ║   • GraphQL = langage de requête pour parler à Shopify                 ║
+// ║   • Synonymes = dictionnaire de mots équivalents (« chlore » =         ║
+// ║     « chlorine », « filtreur » = « filtre », etc.) pour que            ║
+// ║     l'IA trouve les produits même quand le client utilise un autre mot ║
+// ║                                                                        ║
+// ╚════════════════════════════════════════════════════════════════════════╝
 
-import express from "express";
-import cors from "cors";
-import fetch from "node-fetch";
-import dotenv from "dotenv";
-import crypto from "crypto";
 
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  1. IMPORTS — On charge les outils qu'on va utiliser                  │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// Chaque ligne ci-dessous = « va chercher tel outil dans node_modules
+// pour qu'on puisse l'utiliser dans ce fichier ».
+
+import express from "express";       // Le serveur web (gère les requêtes HTTP entrantes)
+import cors from "cors";             // Permet à des sites externes d'appeler notre serveur
+import fetch from "node-fetch";      // Pour faire des appels web SORTANTS (vers Shopify, VAPI, etc.)
+import dotenv from "dotenv";         // Charge les variables secrètes (.env / Railway)
+import crypto from "crypto";         // Pour hasher les numéros de téléphone (anonymisation)
+
+// Active dotenv : lit le fichier .env (en local) ou les variables Railway (en prod)
 dotenv.config();
 
+// Crée l'application serveur
 const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(cors());                                  // Autorise les appels d'autres domaines
+app.use(express.json());                          // Comprend les requêtes en JSON
+app.use(express.urlencoded({ extended: true })); // Comprend les requêtes en formulaire (Twilio)
 
 
-// ============================================================
-// ENV
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  2. ENV — Variables d'environnement (secrets et configuration)         │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// Ces valeurs SONT CONFIGURÉES dans Railway (onglet Variables).
+// Si tu veux changer une de ces valeurs, va dans Railway, pas ici.
+// Ce fichier les LIT seulement.
 
+// Le port sur lequel le serveur écoute (Railway le fournit automatiquement)
 const PORT = process.env.PORT || 8080;
-const SHOPIFY_DOMAIN = process.env.SHOPIFY_DOMAIN;
-const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN;
-const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || "2026-04";
 
-// SMS (Twilio webhook → VAPI Chat → Twilio reply)
-const VAPI_PRIVATE_KEY = process.env.VAPI_PRIVATE_KEY;
-const VAPI_ASSISTANT_ID = process.env.VAPI_ASSISTANT_ID;
+// Connexion à la boutique Shopify
+const SHOPIFY_DOMAIN = process.env.SHOPIFY_DOMAIN;            // ex: barracuda-piscines.myshopify.com
+const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN;              // shpat_xxxx — clé d'accès Admin API
+const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || "2026-04"; // version de l'API Shopify
 
-// Analyse hebdo des appels VAPI (« coach IA »)
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const REPORT_EMAIL_TO = process.env.REPORT_EMAIL_TO;
-const REPORT_EMAIL_FROM = process.env.REPORT_EMAIL_FROM || "Barracuda Coach <onboarding@resend.dev>";
-const ANALYSIS_SECRET = process.env.ANALYSIS_SECRET || "change-me";
-const ANALYSIS_TIMEZONE = process.env.ANALYSIS_TIMEZONE || "America/Toronto";
+// Connexion à VAPI (la plateforme qui héberge notre IA vocale)
+const VAPI_PRIVATE_KEY = process.env.VAPI_PRIVATE_KEY;        // clé API VAPI
+const VAPI_ASSISTANT_ID = process.env.VAPI_ASSISTANT_ID;      // ID de l'assistant utilisé pour le SMS (= l'assistant FR)
 
-// Mapping UUID assistant VAPI → nom lisible. JSON dans env var.
-// Ex: VAPI_ASSISTANTS_MAP='{"7f9e...":"Accueil","dad1...":"FR","3f65...":"EN"}'
+// Coach IA hebdo (analyse automatique des appels de la semaine)
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;      // clé Claude (Anthropic)
+const RESEND_API_KEY = process.env.RESEND_API_KEY;            // clé Resend (envoi de courriels)
+const REPORT_EMAIL_TO = process.env.REPORT_EMAIL_TO;          // adresse qui reçoit le rapport hebdo
+const REPORT_EMAIL_FROM = process.env.REPORT_EMAIL_FROM || "Barracuda Coach <onboarding@resend.dev>"; // expéditeur du rapport
+const ANALYSIS_SECRET = process.env.ANALYSIS_SECRET || "change-me"; // mot de passe pour déclencher /weekly-analysis manuellement
+const ANALYSIS_TIMEZONE = process.env.ANALYSIS_TIMEZONE || "America/Toronto"; // fuseau horaire pour le cron du dimanche
+
+// VAPI_ASSISTANTS_MAP : table de correspondance UUID → nom lisible
+// Pourquoi ? Quand un appel se termine, VAPI nous dit « assistantId = abc123... »
+// mais ça ne veut rien dire. On veut savoir si c'était Accueil, FR ou EN.
+// Format attendu dans Railway : {"uuid-accueil":"Accueil","uuid-fr":"FR","uuid-en":"EN"}
 let VAPI_ASSISTANTS_MAP = {};
 try {
   VAPI_ASSISTANTS_MAP = process.env.VAPI_ASSISTANTS_MAP
     ? JSON.parse(process.env.VAPI_ASSISTANTS_MAP)
     : {};
 } catch (err) {
+  // Si le JSON dans Railway est mal écrit, on continue sans crasher,
+  // mais les stats par assistant seront vides.
   console.warn("[BOOT] VAPI_ASSISTANTS_MAP invalide (JSON malformé) — split par assistant désactivé:", err.message);
   VAPI_ASSISTANTS_MAP = {};
 }
 
+// Avertissements au démarrage si une variable cruciale manque (pour debug rapide)
 if (!SHOPIFY_DOMAIN || !SHOPIFY_TOKEN) {
   console.warn("[BOOT] WARNING: SHOPIFY_DOMAIN or SHOPIFY_TOKEN missing — Shopify calls will fail.");
 }
@@ -61,41 +117,67 @@ if (!ANTHROPIC_API_KEY || !RESEND_API_KEY || !REPORT_EMAIL_TO) {
 }
 
 
-// ============================================================
-// EVENT LOGGING — in-memory, drainé par le coach hebdo dans l'email
-// Volatile : un redémarrage Railway = events perdus. Acceptable pour
-// le volume actuel (~20 calls/jour) et le coach hebdo.
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  3. EVENT LOGGING — Le « carnet d'événements » du serveur             │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// CONCEPT : à chaque action importante (recherche produit, SMS reçu,
+// erreur, etc.), on ajoute une ligne dans une liste en mémoire.
+// Chaque dimanche, le coach lit cette liste, fait des statistiques,
+// puis vide la liste.
+//
+// LIMITE : la liste est EN MÉMOIRE. Si Railway redémarre, la liste est
+// vidée. Pour le volume actuel (~20 appels/jour), c'est acceptable.
+// Si on doit garder les événements à travers les redémarrages, on
+// migrera vers une base de données.
 
-const EVENTS = [];
-const EVENTS_MAX = 10_000;
+const EVENTS = [];               // La liste qui contient tous les événements
+const EVENTS_MAX = 10_000;       // Sécurité : on garde au max 10 000 événements
 
+// Ajoute un événement dans la liste
+// type = nom de l'événement (ex: "sms_received")
+// meta = données associées (ex: { phone_hash: "abc", body_len: 42 })
 function logEvent(type, meta = {}) {
   EVENTS.push({ ts: new Date().toISOString(), type, ...meta });
+  // Si on dépasse la limite, on enlève les plus vieux (FIFO = first-in-first-out)
   if (EVENTS.length > EVENTS_MAX) {
-    EVENTS.splice(0, EVENTS.length - EVENTS_MAX); // FIFO drop
+    EVENTS.splice(0, EVENTS.length - EVENTS_MAX);
   }
 }
 
+// Renvoie une COPIE de la liste, puis vide l'originale.
+// Utilisé par le coach hebdo après envoi réussi du courriel.
 function drainEvents() {
-  const snapshot = EVENTS.slice();
-  EVENTS.length = 0;
+  const snapshot = EVENTS.slice();   // copie
+  EVENTS.length = 0;                 // vide la liste originale
   return snapshot;
 }
 
+// Renvoie une COPIE de la liste SANS la vider.
+// Utilisé pour /events/stats (debug live) et pour calculer les stats
+// du coach hebdo AVANT d'envoyer le courriel (au cas où ça plante,
+// on ne perd pas les events).
 function peekEvents() {
   return EVENTS.slice();
 }
 
-// Hash sha256 tronqué — assez pour grouper sessions sans stocker PII en clair
+// Transforme un numéro de téléphone en code court (12 caractères hex)
+// Pourquoi ? Pour pouvoir grouper les SMS du même client SANS stocker
+// son numéro de téléphone en clair (= protection PII).
 function hashPhone(phone) {
   return crypto.createHash("sha256").update(String(phone || "")).digest("hex").slice(0, 12);
 }
 
 
-// ============================================================
-// HELPER — Shopify Admin GraphQL
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  4. HELPER — Communication avec Shopify (GraphQL)                     │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// Pour parler à Shopify, on utilise GraphQL (un langage de requête).
+// Cette fonction est UTILISÉE par toutes les recherches Shopify du fichier.
+// Elle envoie la requête, vérifie qu'il n'y a pas d'erreur, et renvoie
+// les données. Si erreur, elle « lance une exception » que les fonctions
+// appelantes attrapent avec try/catch.
 
 async function fetchShopifyGraphQL(query, variables = {}) {
   const url = `https://${SHOPIFY_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`;
@@ -104,11 +186,12 @@ async function fetchShopifyGraphQL(query, variables = {}) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Shopify-Access-Token": SHOPIFY_TOKEN,
+      "X-Shopify-Access-Token": SHOPIFY_TOKEN,   // notre clé d'accès Shopify
     },
     body: JSON.stringify({ query, variables }),
   });
 
+  // Si Shopify renvoie une erreur HTTP (ex: 401 = pas autorisé, 500 = bug Shopify)
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`Shopify GraphQL HTTP ${response.status}: ${text}`);
@@ -116,6 +199,7 @@ async function fetchShopifyGraphQL(query, variables = {}) {
 
   const json = await response.json();
 
+  // Si Shopify renvoie 200 OK mais avec des erreurs dans le JSON (ex: champ inexistant)
   if (json.errors) {
     throw new Error(`Shopify GraphQL errors: ${JSON.stringify(json.errors)}`);
   }
@@ -124,39 +208,52 @@ async function fetchShopifyGraphQL(query, variables = {}) {
 }
 
 
-// ============================================================
-// HELPER — VAPI tool call extraction
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  5. HELPER — Extraction du payload VAPI                               │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// Quand l'IA vocale VAPI appelle un de nos tools (ex: search_shopify_products),
+// elle envoie une grosse enveloppe JSON. Les VRAIES données dont on a besoin
+// (les arguments du tool, et un identifiant) sont enfouies à l'intérieur.
+// Ce helper va les chercher.
 
 function getVapiToolCall(req) {
   const toolCall = req.body?.message?.toolCalls?.[0];
   let args = toolCall?.function?.arguments ?? {};
+  // Parfois VAPI envoie les arguments comme une chaîne JSON au lieu d'un objet — on parse
   if (typeof args === "string") {
     try { args = JSON.parse(args); } catch { args = {}; }
   }
   return { toolCall, toolCallId: toolCall?.id ?? null, args: args || {} };
 }
 
+// Construit la réponse au format exact que VAPI attend pour un tool call
 function vapiResult(toolCallId, result) {
   return { results: [{ toolCallId, result }] };
 }
 
 
-// ============================================================
-// NORMALISATION & TOKENISATION
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  6. NORMALISATION & TOKENISATION du texte de recherche                │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// Quand un client dit « j'ai besoin d'un Filtre HAYWARD », on veut chercher
+// en réalité « filtre hayward » (en minuscules, sans accents, sans ponctuation).
+// Ces fonctions font ce ménage avant d'envoyer la requête à Shopify.
 
+// Convertit un texte en sa forme « propre » : minuscules, sans accents, sans ponctuation
 function normalize(s = "") {
   return String(s)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")   // retire accents
-    .replace(/[^\w\s-]/g, " ")          // retire ponctuation (garde tiret)
-    .replace(/\s+/g, " ")
+    .toLowerCase()                       // tout en minuscules
+    .normalize("NFD")                    // décompose les accents (é → e + accent)
+    .replace(/[̀-ͯ]/g, "")              // retire les marques d'accent
+    .replace(/[^\w\s-]/g, " ")           // retire ponctuation (sauf tiret)
+    .replace(/\s+/g, " ")                // collapse les espaces multiples
     .trim();
 }
 
-// Mots vides FR/EN — retirés avant la recherche
+// Mots vides FR/EN — ces mots ne servent à rien dans une recherche et sont retirés
+// (ex: « le », « la », « pour », « the », « of »...)
 const STOPWORDS = new Set([
   "le","la","les","l","de","des","du","d","un","une","et","ou","a","au","aux",
   "pour","avec","sans","sur","sous","dans","par","ce","cette","ces","mon","ma",
@@ -166,18 +263,31 @@ const STOPWORDS = new Set([
   "is","are","be","to","at","from","as","an"
 ]);
 
+// Découpe une phrase en mots utiles
+// Ex : « J'ai besoin d'un filtre Hayward » → ["besoin", "filtre", "hayward"]
 function tokenize(s) {
   return normalize(s)
     .split(" ")
     .map(t => t.trim())
-    .filter(t => t.length >= 2 && !STOPWORDS.has(t));
+    .filter(t => t.length >= 2 && !STOPWORDS.has(t));  // garde les mots de 2+ caractères qui ne sont pas des stopwords
 }
 
 
-// ============================================================
-// DICTIONNAIRE SYNONYMES (FR ↔ EN ↔ jargon piscine/spa)
-// Ajoute/édite ici sans rien d'autre à toucher.
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  7. DICTIONNAIRE DE SYNONYMES — FR ↔ EN ↔ jargon piscine/spa          │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// Le client peut dire « filtreur », « filter », « filtration » — on veut
+// que ça matche tous les produits qui contiennent « filtre » dans le catalogue.
+// Ce dictionnaire regroupe les mots équivalents.
+//
+// COMMENT AJOUTER UN SYNONYME ?
+//   1. Trouve la catégorie (Chimie, Équipement, Marques, etc.)
+//   2. Ajoute une nouvelle ligne avec :
+//        "mot_principal": ["synonyme1", "synonyme2", ...],
+//   3. Sauvegarde, push sur Git, Railway redéploie automatiquement.
+//
+// Le mot principal n'a pas besoin d'être en français — c'est juste la clé.
 
 const SYNONYMS = {
   // --- Chimie de l'eau ---
@@ -261,7 +371,13 @@ const SYNONYMS = {
   "plongeoir":   ["diving board", "tremplin"],
 };
 
-// Index inverse : pour un token donné, retourne tous ses équivalents (incluant lui-même)
+// Construction d'un index inversé : pour CHAQUE mot du dictionnaire,
+// on garde la liste de TOUS ses équivalents (incluant lui-même).
+// Comme ça, qu'on cherche « filtre », « filter » ou « filtreur »,
+// on tombe sur la même liste : ["filtre", "filter", "filtration", "filtreur"].
+//
+// C'est calculé UNE FOIS au démarrage du serveur (la fonction se lance
+// immédiatement grâce aux parenthèses à la fin).
 const SYNONYM_LOOKUP = (() => {
   const map = new Map();
   for (const [canonical, variants] of Object.entries(SYNONYMS)) {
@@ -275,6 +391,8 @@ const SYNONYM_LOOKUP = (() => {
   return map;
 })();
 
+// Pour un mot donné, renvoie la liste complète de ses synonymes
+// (ou le mot lui-même s'il n'est pas dans le dictionnaire)
 function expandSynonyms(token) {
   const n = normalize(token);
   const set = SYNONYM_LOOKUP.get(n);
@@ -282,33 +400,42 @@ function expandSynonyms(token) {
 }
 
 
-// ============================================================
-// CONSTRUCTEUR DE REQUÊTE SHOPIFY SEARCH SYNTAX
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  8. CONSTRUCTEUR DE REQUÊTE SHOPIFY                                   │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// Shopify a son propre langage de recherche (Search Syntax).
+// Cette fonction transforme nos tokens + filtres en une requête
+// que Shopify comprend, ADAPTÉE au niveau de cascade qu'on essaie.
+//
+// ⚠️ PIÈGE IMPORTANT : Shopify supporte les wildcards en SUFFIXE seulement.
+// « filtre* » → trouve « filtre », « filtres », « filtreur » ✅
+// « *filtre* » → renvoie 0 résultats SILENCIEUSEMENT ❌
+// C'est pour ça que dans le code, on met TOUJOURS l'étoile à la fin.
 
-// Échappe les guillemets dans une valeur de recherche Shopify
+// Échappe les guillemets pour les insérer dans une valeur de recherche Shopify
 function esc(v) {
   return String(v).replace(/"/g, '\\"');
 }
 
-// Shopify search syntax supporte les wildcards en SUFFIXE seulement (`mot*`).
-// Les wildcards englobants (`*mot*`) ne fonctionnent pas → retournent 0 silencieusement.
+// Construit la requête Shopify en fonction du niveau de cascade qu'on est en train d'essayer.
+// Chaque niveau est PLUS LARGE que le précédent (= matche plus de produits).
 function buildShopifyQuery({ tokens, vendor, productType, tags, inStockOnly, level }) {
   const parts = [];
 
   if (tokens && tokens.length > 0) {
     if (level === "STRICT") {
-      // Chaque token doit apparaître exactement (match de token, pas de wildcard)
+      // Niveau 1 : chaque mot doit apparaître EXACTEMENT (pas de wildcard)
       const block = tokens.map(tok => `title:${tok}`).join(" AND ");
       parts.push(block);
     } else if (level === "TOKENS") {
-      // Préfixe sur chaque token, dans title/tag/product_type
+      // Niveau 2 : préfixe sur chaque mot, recherche dans titre/tags/type
       const block = tokens
         .map(tok => `(title:${tok}* OR tag:${tok}* OR product_type:${tok}*)`)
         .join(" AND ");
       parts.push(block);
     } else if (level === "SYNONYMES") {
-      // Tokens + synonymes (OR par token, AND entre tokens), préfixe
+      // Niveau 3 : on ajoute les synonymes (« filtre » = « filter » = « filtreur »...)
       const block = tokens.map(tok => {
         const syns = expandSynonyms(tok);
         const ors = syns
@@ -318,7 +445,7 @@ function buildShopifyQuery({ tokens, vendor, productType, tags, inStockOnly, lev
       }).join(" AND ");
       parts.push(block);
     } else if (level === "FILTERS_OFF") {
-      // Synonymes mais on drop vendor/type/tags pour élargir
+      // Niveau 4 : on retire les filtres (marque, type, stock) pour élargir
       const block = tokens.map(tok => {
         const syns = expandSynonyms(tok);
         const ors = syns.map(s => `title:${s}* OR tag:${s}*`).join(" OR ");
@@ -326,26 +453,27 @@ function buildShopifyQuery({ tokens, vendor, productType, tags, inStockOnly, lev
       }).join(" AND ");
       parts.push(block);
     } else if (level === "KEYWORD") {
-      // Token le plus long + ses synonymes
+      // Niveau 5 : on garde SEULEMENT le mot le plus long + ses synonymes
       const longest = [...tokens].sort((a, b) => b.length - a.length)[0];
       const syns = expandSynonyms(longest);
       const ors = syns.map(s => `title:${s}* OR tag:${s}*`).join(" OR ");
       parts.push(`(${ors})`);
     } else if (level === "TAGS_ONLY") {
-      // Tags seulement
+      // Niveau 6 : recherche SEULEMENT dans les tags (catégories)
       const block = tokens.map(tok => {
         const syns = expandSynonyms(tok);
         return `(${syns.map(s => `tag:${s}*`).join(" OR ")})`;
       }).join(" OR ");
       parts.push(block);
     } else if (level === "FULLTEXT") {
-      // Dernier recours : full-text tokenisé par défaut de Shopify (aucun champ explicite)
+      // Niveau 7 (dernier recours) : recherche libre, Shopify fait comme il veut
       parts.push(tokens.join(" "));
     }
   }
 
-  // Filtres structurels + stock : uniquement aux niveaux stricts.
-  // À partir de FILTERS_OFF on drop TOUT (y compris inStockOnly) pour maximiser le rappel.
+  // Filtres structurels (marque, type, tags) + filtre stock :
+  // ces filtres ne sont gardés QU'AUX NIVEAUX STRICTS.
+  // À partir de FILTERS_OFF, on les retire pour maximiser les chances de trouver quelque chose.
   const keepAllFilters = level === "STRICT" || level === "TOKENS" || level === "SYNONYMES" || level === "FILTERS_ONLY";
 
   if (keepAllFilters) {
@@ -358,16 +486,21 @@ function buildShopifyQuery({ tokens, vendor, productType, tags, inStockOnly, lev
     if (inStockOnly) parts.push(`inventory_total:>0`);
   }
 
-  // Toujours exclure drafts/archivés
+  // On exclut TOUJOURS les produits en brouillon ou archivés
   parts.push(`status:active`);
 
+  // Joint toutes les parties avec « AND » pour faire la requête finale
   return parts.join(" AND ");
 }
 
 
-// ============================================================
-// REQUÊTE GRAPHQL PRODUITS
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  9. REQUÊTE GRAPHQL PRODUITS — Le « formulaire » qu'on envoie         │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// Cette grosse chaîne en GraphQL dit à Shopify :
+// « Donne-moi les N premiers produits qui matchent ma recherche $q,
+//   avec leur titre, prix, variantes, inventaire, image, etc. »
 
 const PRODUCTS_GQL = `
   query SearchProducts($q: String!, $first: Int!) {
@@ -406,28 +539,47 @@ const PRODUCTS_GQL = `
 `;
 
 
-// ============================================================
-// RECHERCHE EN CASCADE — du plus précis au plus large
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  10. RECHERCHE EN CASCADE — Élargir la recherche si rien trouvé       │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// PRINCIPE : on essaie d'abord la recherche la plus PRÉCISE.
+// Si on trouve 0 produit, on retente avec une recherche un peu plus LARGE.
+// On répète jusqu'à trouver quelque chose, ou jusqu'à épuiser tous les niveaux.
+//
+// L'ordre des niveaux (du plus précis au plus large) :
+//   1. STRICT       — match exact des mots
+//   2. TOKENS       — chaque mot avec wildcard de suffixe
+//   3. SYNONYMES    — on ajoute les synonymes FR/EN
+//   4. FILTERS_OFF  — on retire les filtres (marque, type, stock)
+//   5. KEYWORD      — seulement le mot le plus long
+//   6. TAGS_ONLY    — recherche dans les catégories seulement
+//   7. FULLTEXT     — recherche libre, dernier recours
 
 const CASCADE_LEVELS = ["STRICT", "TOKENS", "SYNONYMES", "FILTERS_OFF", "KEYWORD", "TAGS_ONLY", "FULLTEXT"];
 
+// Filtre les produits par prix (côté serveur, après que Shopify ait répondu).
+// Pourquoi pas dans la requête Shopify ? Parce que Shopify ne supporte pas
+// le filtre prix dans la search syntax — il faut le faire après.
 function applyPriceFilter(products, minPrice, maxPrice) {
   if (minPrice == null && maxPrice == null) return products;
   return products.filter(p => {
     const min = parseFloat(p.priceRangeV2?.minVariantPrice?.amount ?? "0");
     const max = parseFloat(p.priceRangeV2?.maxVariantPrice?.amount ?? "0");
-    if (minPrice != null && max < minPrice) return false;       // tout l'éventail sous min
-    if (maxPrice != null && min > maxPrice) return false;       // tout l'éventail au-dessus de max
+    if (minPrice != null && max < minPrice) return false;       // tout l'éventail sous le min
+    if (maxPrice != null && min > maxPrice) return false;       // tout l'éventail au-dessus du max
     return true;
   });
 }
 
+// Lance une recherche Shopify et renvoie la liste des produits
 async function runShopifySearch(qStr, fetchCount) {
   const data = await fetchShopifyGraphQL(PRODUCTS_GQL, { q: qStr, first: fetchCount });
   return (data.products?.edges || []).map(e => e.node);
 }
 
+// La FONCTION PRINCIPALE de la cascade.
+// On essaie chaque niveau l'un après l'autre jusqu'à trouver des résultats.
 async function cascadeSearch(args) {
   const {
     query, vendor, productType, tags,
@@ -436,10 +588,12 @@ async function cascadeSearch(args) {
   } = args;
 
   const tokens = tokenize(query);
-  const fetchCount = Math.min(Math.max(limit * 2, 10), 100); // marge pour filtrage prix client-side
-  const debugTrace = [];
+  // On demande à Shopify plus de produits que la limite finale, pour avoir
+  // une marge si le filtre prix retire des résultats après coup.
+  const fetchCount = Math.min(Math.max(limit * 2, 10), 100);
+  const debugTrace = []; // log de toutes les tentatives, utile en cas de 0 résultat
 
-  // Cas 1 : pas de texte, seulement des filtres
+  // CAS 1 : aucun mot fourni (le client a juste filtré par marque/type)
   if (tokens.length === 0) {
     const q = buildShopifyQuery({ tokens: [], vendor, productType, tags, inStockOnly, level: "FILTERS_ONLY" });
     try {
@@ -459,7 +613,8 @@ async function cascadeSearch(args) {
     }
   }
 
-  // Cas 2 : cascade textuelle
+  // CAS 2 : il y a du texte → on lance la cascade.
+  // Si widenIfEmpty = false, on s'arrête après les 3 premiers niveaux (STRICT/TOKENS/SYNONYMES).
   const levels = widenIfEmpty ? CASCADE_LEVELS : CASCADE_LEVELS.slice(0, 3);
 
   for (const level of levels) {
@@ -470,7 +625,7 @@ async function cascadeSearch(args) {
     } catch (err) {
       console.error(`[cascade] level=${level} FAILED query="${q}" err=${err.message}`);
       debugTrace.push({ level, query: q, error: err.message });
-      continue; // on tente le niveau suivant
+      continue; // ce niveau a planté, on tente le suivant
     }
 
     const before = products.length;
@@ -478,24 +633,29 @@ async function cascadeSearch(args) {
     debugTrace.push({ level, query: q, fetched: before, after_price_filter: products.length });
     console.log(`[cascade] level=${level} query="${q}" fetched=${before} after_price_filter=${products.length}`);
 
+    // Bingo, on a trouvé au moins un produit → on s'arrête là
     if (products.length > 0) {
       return {
         products: products.slice(0, limit),
         level,
         finalQuery: q,
-        widened: level !== "STRICT",
+        widened: level !== "STRICT",  // « widened » = vrai si on a élargi au-delà du niveau strict
         debugTrace,
       };
     }
   }
 
+  // Tous les niveaux ont retourné 0 → vraiment rien à proposer
   return { products: [], level: "NONE", finalQuery: null, widened: true, debugTrace };
 }
 
 
-// ============================================================
-// FORMATAGE RÉSULTATS POUR L'IA VAPI
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  11. FORMATAGE DES RÉSULTATS POUR L'IA VAPI                           │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// L'IA reçoit la liste des produits trouvés. On la simplifie pour ne
+// garder QUE ce qui lui sert (titre, prix, stock, URL, image, variantes).
 
 function formatProduct(p) {
   return {
@@ -522,6 +682,8 @@ function formatProduct(p) {
   };
 }
 
+// Génère un message en français pour expliquer à l'IA CE QU'ELLE VIENT DE TROUVER.
+// L'IA va lire ce message et l'utiliser pour formuler sa réponse vocale au client.
 function buildMessage({ count, level, widened }) {
   if (count === 0) {
     return "Aucun produit trouvé même après élargissement progressif. Demande au client de reformuler ou propose-lui des catégories générales (chimie, filtration, accessoires).";
@@ -529,6 +691,7 @@ function buildMessage({ count, level, widened }) {
   if (!widened) {
     return `${count} produit(s) trouvé(s) avec les critères exacts demandés.`;
   }
+  // Si on a élargi, on dit à l'IA POURQUOI (pour qu'elle puisse l'expliquer au client)
   const explain = {
     TOKENS:      "j'ai cherché chaque mot séparément",
     SYNONYMES:   "j'ai inclus les synonymes FR/EN et le vocabulaire technique",
@@ -542,16 +705,23 @@ function buildMessage({ count, level, widened }) {
 }
 
 
-// ============================================================
-// ROUTE — POST /search_shopify_products  (tool VAPI)
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  12. ROUTE — POST /search_shopify_products                            │
+// │       (Le tool que l'IA VAPI appelle pour chercher un produit)         │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// Flow :
+//   ① VAPI appelle cette URL avec { query: "filtre hayward", ... }
+//   ② On lance la cascade de recherche
+//   ③ On enregistre un événement (pour les stats du coach)
+//   ④ On renvoie les produits formatés à VAPI
 
 app.post("/search_shopify_products", async (req, res) => {
   const { toolCallId, args } = getVapiToolCall(req);
-  const start = Date.now();
+  const start = Date.now();  // chrono pour mesurer la latence
 
   try {
-    // Validation : au moins un critère
+    // Validation : il faut au moins UN critère (sinon ça n'a pas de sens)
     const hasQuery = typeof args.query === "string" && args.query.trim().length > 0;
     const hasFilter = args.vendor || args.product_type || (Array.isArray(args.tags) && args.tags.length > 0);
 
@@ -566,8 +736,8 @@ app.post("/search_shopify_products", async (req, res) => {
       }));
     }
 
-    // Normalisation des arguments
-    const limit = Math.min(Math.max(parseInt(args.limit, 10) || 10, 1), 50);
+    // Normalisation des arguments fournis par l'IA (avec valeurs par défaut sûres)
+    const limit = Math.min(Math.max(parseInt(args.limit, 10) || 10, 1), 50);   // entre 1 et 50, défaut 10
     const minPrice = typeof args.min_price === "number" ? args.min_price
                    : (args.min_price != null ? parseFloat(args.min_price) : null);
     const maxPrice = typeof args.max_price === "number" ? args.max_price
@@ -582,15 +752,17 @@ app.post("/search_shopify_products", async (req, res) => {
       maxPrice: Number.isFinite(maxPrice) ? maxPrice : null,
       inStockOnly: !!args.in_stock_only,
       limit,
-      widenIfEmpty: args.widen_if_empty !== false,
+      widenIfEmpty: args.widen_if_empty !== false,  // défaut = true (on élargit)
     };
 
+    // ⭐ Lancement de la cascade
     const { products, level, finalQuery, widened, debugTrace } = await cascadeSearch(searchArgs);
     const formatted = products.map(formatProduct);
     const ms = Date.now() - start;
 
     console.log(`[search_shopify_products] level=${level} count=${formatted.length} ms=${ms}ms query="${finalQuery}"`);
 
+    // Enregistre l'événement pour les stats du coach hebdo
     logEvent("shopify_product_search", {
       query: args.query || "",
       results_count: formatted.length,
@@ -599,6 +771,7 @@ app.post("/search_shopify_products", async (req, res) => {
       ms,
     });
 
+    // Réponse à l'IA
     const response = {
       count: formatted.length,
       products: formatted,
@@ -616,17 +789,19 @@ app.post("/search_shopify_products", async (req, res) => {
       message: buildMessage({ count: formatted.length, level, widened }),
     };
 
-    // Diagnostic : si 0 résultat, on remonte la trace pour comprendre sans aller dans Railway
+    // Si 0 résultat, on inclut la trace de toutes les tentatives pour pouvoir débuger
     if (formatted.length === 0) {
       response.debug = debugTrace;
     }
 
     return res.json(vapiResult(toolCallId, response));
   } catch (err) {
+    // Quelque chose a planté — on log et on renvoie un message d'erreur à l'IA
     const ms = Date.now() - start;
     console.error(`[search_shopify_products] ERROR after ${ms}ms:`, err);
     logEvent("error", { where: "search_shopify_products", message: err.message, ms });
-    // VAPI: on renvoie 200 avec error dans result pour que l'IA puisse l'expliquer au client
+    // ⚠️ On renvoie 200 OK (pas 500) avec l'erreur DANS la réponse, pour que
+    // l'IA puisse l'expliquer au client au lieu de paniquer.
     return res.json(vapiResult(toolCallId, {
       count: 0,
       products: [],
@@ -640,24 +815,35 @@ app.post("/search_shopify_products", async (req, res) => {
 });
 
 
-// ============================================================
-// SMS — Pont Twilio ↔ VAPI Chat
-// Twilio reçoit le SMS → webhook POST /sms/incoming → VAPI Chat API
-// → réponse renvoyée en TwiML, Twilio envoie le SMS au client.
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  13. PONT SMS — Twilio ↔ VAPI Chat                                    │
+// ╰───────────────────────────────────────────────────────────────────────╯
 //
-// Setup côté Twilio : Phone Numbers → ton numéro → Messaging →
-//   "A message comes in" → Webhook → URL = .../sms/incoming (POST)
+// FLOW COMPLET :
+//   ① Un client envoie un SMS à notre numéro Twilio
+//   ② Twilio détecte le SMS et fait un POST sur /sms/incoming
+//   ③ On envoie le texte du SMS à l'API VAPI Chat (qui utilise l'assistant FR)
+//   ④ VAPI répond avec un message (l'IA peut appeler les tools Shopify aussi !)
+//   ⑤ On renvoie la réponse à Twilio au format TwiML (XML)
+//   ⑥ Twilio envoie le SMS de réponse au client
 //
-// Env requis : VAPI_PRIVATE_KEY (Bearer token API VAPI),
-//              VAPI_ASSISTANT_ID (l'assistant à utiliser pour le SMS)
-// ============================================================
+// CONFIG TWILIO REQUISE :
+//   Phone Numbers → ton numéro → Messaging → "A message comes in" →
+//   Webhook → URL = https://barracuda-ai-agent-production-806d.up.railway.app/sms/incoming
+//   Method = POST
 
-const SMS_SESSION_TTL_MS = 60 * 60 * 1000; // 1h — sessions plus vieilles = abandonnées
-const smsSessions = new Map(); // phoneNumber → { previousChatId, lastSeen }
+// Durée de vie d'une session : 1 heure. Au-delà, on considère la conversation
+// terminée et on en démarre une nouvelle si le client renvoie un SMS.
+const SMS_SESSION_TTL_MS = 60 * 60 * 1000;
 
+// Stockage en mémoire des sessions actives : numéro → { id de chat VAPI, dernière interaction }
+const smsSessions = new Map();
+
+// Récupère la session d'un numéro, ou null si elle n'existe pas / est expirée
 function getSmsSession(phone) {
   const s = smsSessions.get(phone);
   if (!s) return null;
+  // Expirée ? On supprime et on renvoie null
   if (Date.now() - s.lastSeen > SMS_SESSION_TTL_MS) {
     smsSessions.delete(phone);
     return null;
@@ -665,11 +851,13 @@ function getSmsSession(phone) {
   return s;
 }
 
+// Sauvegarde/met à jour la session pour un numéro
 function setSmsSession(phone, chatId) {
   smsSessions.set(phone, { previousChatId: chatId, lastSeen: Date.now() });
 }
 
-// Échappe le contenu utilisateur pour insertion sûre dans le XML TwiML
+// Échappe les caractères spéciaux pour pouvoir mettre le texte dans du XML (TwiML)
+// Sinon un texte avec « < » ou « & » casserait le XML
 function escapeXml(s = "") {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -679,7 +867,9 @@ function escapeXml(s = "") {
     .replace(/'/g, "&apos;");
 }
 
-// Appelle l'API VAPI Chat avec continuité de conversation via previousChatId
+// Appelle l'API VAPI Chat avec le texte du client.
+// Si on a un previousChatId (= conversation déjà entamée), on le passe pour
+// maintenir le contexte (l'IA se souvient des SMS précédents).
 async function vapiChat(message, previousChatId = null) {
   if (!VAPI_PRIVATE_KEY || !VAPI_ASSISTANT_ID) {
     throw new Error("VAPI credentials missing (VAPI_PRIVATE_KEY / VAPI_ASSISTANT_ID)");
@@ -704,9 +894,10 @@ async function vapiChat(message, previousChatId = null) {
 
   const data = await response.json();
 
-  // VAPI Chat peut renvoyer plusieurs messages (firstMessage + réponse réelle).
-  // On veut TOUJOURS le DERNIER message assistant — sinon on récupère la salutation
-  // au lieu de la réponse à la question du user.
+  // ⚠️ PIÈGE CRITIQUE : VAPI Chat renvoie PLUSIEURS messages dans output[].
+  // Souvent il y a la firstMessage de l'assistant (« Bonjour, ici Barracuda... »)
+  // ET la vraie réponse à la question du user. On veut LA VRAIE RÉPONSE, donc
+  // on prend TOUJOURS le DERNIER message assistant.
   let reply = "";
 
   if (Array.isArray(data.output) && data.output.length > 0) {
@@ -714,11 +905,13 @@ async function vapiChat(message, previousChatId = null) {
     reply = assistantMsgs[assistantMsgs.length - 1]?.content || "";
   }
 
+  // Fallback : si le format est différent (champ "messages" au lieu de "output")
   if (!reply && Array.isArray(data.messages) && data.messages.length > 0) {
     const assistantMsgs = data.messages.filter(m => m?.role === "assistant");
     reply = assistantMsgs[assistantMsgs.length - 1]?.content || "";
   }
 
+  // Dernier fallback : champs directs "message" ou "content"
   if (!reply) {
     reply = data.message || data.content || "";
   }
@@ -726,49 +919,56 @@ async function vapiChat(message, previousChatId = null) {
   return { chatId: data.id, reply, raw: data };
 }
 
-// Endpoint webhook Twilio (form-urlencoded)
+// Endpoint webhook Twilio — c'est ICI qu'arrivent les SMS entrants
 app.post("/sms/incoming", async (req, res) => {
-  const from = req.body?.From;
-  const to = req.body?.To;
-  const body = req.body?.Body;
-  const sid = req.body?.MessageSid;
+  // Twilio envoie ces données en form-urlencoded
+  const from = req.body?.From;             // numéro du client
+  const to = req.body?.To;                 // notre numéro
+  const body = req.body?.Body;             // contenu du SMS
+  const sid = req.body?.MessageSid;        // identifiant Twilio du SMS
   const smsStart = Date.now();
-  const phoneHash = hashPhone(from);
+  const phoneHash = hashPhone(from);       // hash anonymisé du numéro
 
   console.log(`[sms] incoming from=${from} to=${to} sid=${sid} body="${body}"`);
 
-  // Twilio attend du TwiML quelle que soit l'issue
+  // Twilio attend une réponse au format TwiML (XML) — on le déclare dès le début
   res.set("Content-Type", "text/xml; charset=utf-8");
 
+  // SMS vide ? On accuse réception sans répondre (évite de spammer)
   if (!from || !body || !body.trim()) {
-    // Pas de contenu → on accuse simplement réception (réponse vide)
     return res.send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
   }
 
   try {
+    // On regarde si le client a déjà une conversation en cours
     const session = getSmsSession(from);
     console.log(`[sms] session_lookup phone=${from} previous_chat_id=${session?.previousChatId || "NONE (new conversation)"}`);
 
+    // Log l'événement « SMS reçu » pour le coach hebdo
     logEvent("sms_received", {
       phone_hash: phoneHash,
       body_len: body.length,
       is_new_session: !session,
     });
 
+    // ⭐ Appel à VAPI Chat avec la continuité de conversation
     const { chatId, reply } = await vapiChat(body.trim(), session?.previousChatId);
-    if (chatId) setSmsSession(from, chatId);
+    if (chatId) setSmsSession(from, chatId);   // on sauvegarde la session
 
+    // Si VAPI a renvoyé une réponse vide pour une raison X, on a un fallback
     const finalReply = (reply && reply.trim())
       || "Désolé, je n'ai pas saisi votre message. Pouvez-vous reformuler? / Sorry, I didn't catch that. Could you rephrase?";
 
     console.log(`[sms] reply to ${from} new_chatId=${chatId} reply="${finalReply.slice(0, 100)}..."`);
 
+    // Log « SMS répondu » avec la latence
     logEvent("sms_replied", {
       phone_hash: phoneHash,
       latency_ms: Date.now() - smsStart,
       reply_len: finalReply.length,
     });
 
+    // Réponse à Twilio au format TwiML — Twilio enverra ce texte au client
     return res.send(
       `<?xml version="1.0" encoding="UTF-8"?>\n<Response><Message>${escapeXml(finalReply)}</Message></Response>`
     );
@@ -780,6 +980,7 @@ app.post("/sms/incoming", async (req, res) => {
       phone_hash: phoneHash,
       latency_ms: Date.now() - smsStart,
     });
+    // En cas d'erreur, on envoie un message générique au client (au lieu de rien)
     return res.send(
       `<?xml version="1.0" encoding="UTF-8"?>\n<Response><Message>${escapeXml(
         "Désolé, erreur technique. Réessayez dans un instant ou appelez-nous au magasin."
@@ -788,8 +989,8 @@ app.post("/sms/incoming", async (req, res) => {
   }
 });
 
-// Diagnostic SMS — hit depuis le navigateur pour vérifier que VAPI Chat répond
-// Accepte ?msg=... pour tester un message custom
+// Endpoint diagnostic — visite l'URL dans un navigateur pour tester VAPI Chat
+// sans passer par Twilio. Tu peux ajouter ?msg=ton+message pour tester un message custom.
 app.get("/diagnose-sms", async (req, res) => {
   const msg = req.query.msg || "Avez-vous un filtre Hayward en stock?";
   try {
@@ -801,7 +1002,7 @@ app.get("/diagnose-sms", async (req, res) => {
       vapi_chat_id: chatId,
       parsed_reply: reply,
       sessions_active: smsSessions.size,
-      raw_response: raw, // structure complète pour debug
+      raw_response: raw,   // structure complète, utile pour debug
     });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
@@ -809,21 +1010,27 @@ app.get("/diagnose-sms", async (req, res) => {
 });
 
 
-// ============================================================
-// COACH IA — Analyse hebdo des appels VAPI
-// 1. Fetch les appels VAPI de la semaine
-// 2. Pré-filtre les « intéressants » (échecs, courts, erreurs)
-// 3. Envoie à Claude Sonnet 4.6 qui produit un rapport JSON
-// 4. Envoie le rapport par courriel via Resend
-//
-// Déclencheur : automatique tous les dimanches 23h (timezone Toronto)
-// OU manuel via POST /weekly-analysis?secret=<ANALYSIS_SECRET>
-//
-// Env requis : ANTHROPIC_API_KEY, RESEND_API_KEY, REPORT_EMAIL_TO,
-//              VAPI_PRIVATE_KEY (déjà setup pour le SMS)
-// ============================================================
+// ╔════════════════════════════════════════════════════════════════════════╗
+// ║                                                                        ║
+// ║   COACH IA HEBDO — Analyse automatique des appels                      ║
+// ║                                                                        ║
+// ║   À QUOI ÇA SERT :                                                     ║
+// ║   Chaque dimanche à 23h (heure de Toronto), le serveur :               ║
+// ║   ① récupère TOUS les appels VAPI de la semaine                        ║
+// ║   ② calcule des statistiques (volume, durée, langue, etc.)             ║
+// ║   ③ garde seulement les appels « intéressants » (trop courts,          ║
+// ║      trop longs, erreurs, ou contenant « je ne sais pas »)             ║
+// ║   ④ envoie ces appels à Claude (l'IA d'Anthropic) qui les analyse      ║
+// ║      et identifie les problèmes + propose des fixes concrets           ║
+// ║   ⑤ envoie un rapport courriel HTML à toi (REPORT_EMAIL_TO)            ║
+// ║                                                                        ║
+// ║   DÉCLENCHEMENTS :                                                     ║
+// ║   • Automatique : tous les dimanches 23h (via setInterval ci-dessous)  ║
+// ║   • Manuel : POST /weekly-analysis?secret=<ANALYSIS_SECRET>            ║
+// ║                                                                        ║
+// ╚════════════════════════════════════════════════════════════════════════╝
 
-// --- 1. FETCH des appels VAPI ---
+// --- ÉTAPE 1. Récupérer les appels VAPI de la semaine ---
 async function fetchVapiCalls(startDate, endDate) {
   const url = `https://api.vapi.ai/call?createdAtGe=${startDate.toISOString()}&createdAtLe=${endDate.toISOString()}&limit=1000`;
 
@@ -840,34 +1047,36 @@ async function fetchVapiCalls(startDate, endDate) {
   }
 
   const data = await response.json();
+  // VAPI peut renvoyer soit un tableau direct, soit { calls: [...] } — on gère les deux
   return Array.isArray(data) ? data : (data.calls || []);
 }
 
-// --- 2. PRÉ-FILTRAGE des appels « intéressants » ---
+// --- ÉTAPE 2. Pré-filtrage : on ne garde que les appels « intéressants »
+// (Inutile d'envoyer à Claude un appel parfait — ça coûte des tokens pour rien)
 function isInterestingCall(call) {
   const durationSec = call.endedAt && call.startedAt
     ? (new Date(call.endedAt) - new Date(call.startedAt)) / 1000
     : 0;
 
-  // Critères : trop court, trop long, raison de fin suspecte, erreur tool, échec
-  if (durationSec < 30) return true;                              // raccrochage rapide = problème
-  if (durationSec > 300) return true;                             // > 5 min = client s'enlise
-  if (call.endedReason && /error|failed|timeout/i.test(call.endedReason)) return true;
-  if (call.status === "failed") return true;
+  // Critères d'« intéressant » :
+  if (durationSec < 30) return true;                               // < 30s = client a raccroché vite (problème ?)
+  if (durationSec > 300) return true;                              // > 5 min = client s'enlise
+  if (call.endedReason && /error|failed|timeout/i.test(call.endedReason)) return true;  // raison de fin suspecte
+  if (call.status === "failed") return true;                       // appel marqué « failed »
 
-  // A-t-on des messages "je ne sais pas" / "désolé" ?
+  // Le transcript contient-il des signaux d'échec de l'IA ?
   const transcript = (call.transcript || "").toLowerCase();
   if (/je ne sais pas|je ne trouve pas|désolé|i don'?t know|sorry/i.test(transcript)) return true;
 
-  return false;
+  return false;  // tout va bien, on n'envoie pas cet appel à Claude
 }
 
+// Réduit l'objet « appel » à l'essentiel, pour économiser des tokens Claude
 function compactCallForAnalysis(call) {
-  // Réduit l'objet à l'essentiel pour économiser des tokens
   return {
     id: call.id,
     assistant_id: call.assistantId || null,
-    assistant_name: VAPI_ASSISTANTS_MAP[call.assistantId] || null,
+    assistant_name: VAPI_ASSISTANTS_MAP[call.assistantId] || null,  // « Accueil » / « FR » / « EN »
     started_at: call.startedAt || null,
     duration_sec: call.endedAt && call.startedAt
       ? Math.round((new Date(call.endedAt) - new Date(call.startedAt)) / 1000)
@@ -882,8 +1091,11 @@ function compactCallForAnalysis(call) {
 }
 
 // --- Stats agrégées calculées DEPUIS la liste brute des appels VAPI ---
+// (Volume, durée, split par assistant FR/EN/Accueil, raisons de fin, heures de pic)
 function computeCallStats(allCalls) {
   const total = allCalls.length;
+
+  // Cas spécial : aucun appel → on renvoie un objet vide bien formé
   if (total === 0) {
     return {
       total_calls: 0,
@@ -897,14 +1109,16 @@ function computeCallStats(allCalls) {
     };
   }
 
+  // On boucle sur les appels et on accumule les compteurs
   const durations = [];
-  const byAssistant = {};
-  const byEndedReason = {};
-  const byHour = {};
+  const byAssistant = {};      // ex: { "FR": 12, "EN": 3, "Accueil": 1 }
+  const byEndedReason = {};    // ex: { "customer-ended-call": 15, "error": 1 }
+  const byHour = {};           // ex: { 9: 2, 10: 5, 14: 3 } — heure de la journée
   let short30 = 0;
   let long5 = 0;
 
   for (const c of allCalls) {
+    // Durée de l'appel en secondes
     const dur = c.endedAt && c.startedAt
       ? (new Date(c.endedAt) - new Date(c.startedAt)) / 1000
       : 0;
@@ -912,21 +1126,25 @@ function computeCallStats(allCalls) {
     if (dur > 0 && dur < 30) short30++;
     if (dur > 300) long5++;
 
+    // Compteur par assistant (avec nom lisible si on a le mapping)
     const aName = VAPI_ASSISTANTS_MAP[c.assistantId] || c.assistantId || "unknown";
     byAssistant[aName] = (byAssistant[aName] || 0) + 1;
 
+    // Compteur par raison de fin d'appel
     const reason = c.endedReason || "unknown";
     byEndedReason[reason] = (byEndedReason[reason] || 0) + 1;
 
+    // Heure locale (Toronto) à laquelle l'appel a commencé
     if (c.startedAt) {
       try {
         const local = new Date(new Date(c.startedAt).toLocaleString("en-US", { timeZone: ANALYSIS_TIMEZONE }));
         const hour = local.getHours();
         byHour[hour] = (byHour[hour] || 0) + 1;
-      } catch { /* skip bad date */ }
+      } catch { /* date corrompue, on skip */ }
     }
   }
 
+  // Moyenne et total
   const totalDur = durations.reduce((a, b) => a + b, 0);
   const avgDur = durations.length > 0 ? totalDur / durations.length : 0;
 
@@ -942,15 +1160,17 @@ function computeCallStats(allCalls) {
   };
 }
 
-// --- Stats agrégées calculées DEPUIS les events in-memory drainés ---
+// --- Stats agrégées calculées DEPUIS les events in-memory ---
+// (Top requêtes Shopify, requêtes sans résultat = synonymes manquants, SMS, erreurs)
 function computeEventStats(events) {
+  // On découpe la liste d'events par type
   const productSearches = events.filter(e => e.type === "shopify_product_search");
   const orderSearches = events.filter(e => e.type === "shopify_order_search");
   const smsReceived = events.filter(e => e.type === "sms_received");
   const smsReplied = events.filter(e => e.type === "sms_replied");
   const errors = events.filter(e => e.type === "error");
 
-  // Top queries Shopify (par fréquence)
+  // Top requêtes Shopify (= mots les plus cherchés)
   const queryCount = {};
   const cascadeLevelCount = {};
   let zeroResultQueries = [];
@@ -958,23 +1178,27 @@ function computeEventStats(events) {
     const q = (e.query || "").trim().toLowerCase();
     if (q) queryCount[q] = (queryCount[q] || 0) + 1;
     cascadeLevelCount[e.cascade_level] = (cascadeLevelCount[e.cascade_level] || 0) + 1;
+    // Une requête avec 0 résultat = candidat « synonyme manquant »
     if (e.results_count === 0 && q) zeroResultQueries.push(q);
   }
-  // Dédupliquer avec compte
+
+  // Compte combien de fois chaque requête « zéro résultat » est revenue
   const zeroResultCount = {};
   for (const q of zeroResultQueries) zeroResultCount[q] = (zeroResultCount[q] || 0) + 1;
 
+  // Top 20 requêtes les plus fréquentes
   const topQueries = Object.entries(queryCount)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 20)
     .map(([query, count]) => ({ query, count }));
 
+  // Top 15 requêtes « zéro résultat » (= synonymes à ajouter en priorité)
   const topZeroResultQueries = Object.entries(zeroResultCount)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 15)
     .map(([query, count]) => ({ query, count }));
 
-  // SMS : sessions uniques (via phone_hash distincts dans sms_received)
+  // Stats SMS : numéros uniques, nouvelles sessions, latence moyenne
   const uniquePhones = new Set(smsReceived.map(e => e.phone_hash).filter(Boolean));
   const newSessions = smsReceived.filter(e => e.is_new_session).length;
   const latencies = smsReplied.map(e => e.latency_ms).filter(n => typeof n === "number");
@@ -982,10 +1206,10 @@ function computeEventStats(events) {
     ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length)
     : 0;
 
-  // Orders : taux trouvé
+  // Commandes : combien ont été trouvées vs non trouvées
   const ordersFound = orderSearches.filter(e => e.found).length;
 
-  // Errors par where
+  // Erreurs par endroit (où elles se sont produites)
   const errorsByWhere = {};
   for (const e of errors) {
     const w = e.where || "unknown";
@@ -1018,7 +1242,9 @@ function computeEventStats(events) {
   };
 }
 
-// --- 3. ANALYSE par Claude Sonnet 4.6 ---
+// --- ÉTAPE 3. Analyse par Claude Sonnet 4.6 ---
+
+// Prompt système : le rôle et les règles que Claude doit suivre
 const COACH_SYSTEM_PROMPT = `Tu es un coach IA expert pour Barracuda Piscines & Spas, un magasin de piscines et spas à Gatineau, Québec.
 
 Tu analyses les transcripts d'appels et SMS de la semaine de leur agent vocal IA bilingue (FR/EN) qui :
@@ -1038,6 +1264,8 @@ Règles :
 - Si rien d'alarmant : appelle quand même submit_weekly_report avec top_issues vide et wins remplis
 - N'invente RIEN. Si tu ne vois pas un pattern dans les transcripts fournis, ne le mentionne pas.`;
 
+// Schéma du tool que Claude DOIT appeler pour soumettre son rapport.
+// On force l'utilisation de ce tool (via tool_choice) pour garantir un JSON valide.
 const COACH_TOOL_SCHEMA = {
   name: "submit_weekly_report",
   description: "Soumet le rapport hebdomadaire d'analyse des appels VAPI",
@@ -1102,9 +1330,11 @@ const COACH_TOOL_SCHEMA = {
   }
 };
 
+// Fonction qui envoie les appels à Claude et récupère son analyse
 async function analyzeWithClaude(calls, statsContext = null) {
   if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY missing");
 
+  // Si on a des stats, on les passe à Claude pour qu'il croise « stats objectives » + transcripts
   const statsBlock = statsContext
     ? `\nMÉTRIQUES OBJECTIVES DE LA SEMAINE (toute la base, pas juste les appels ci-dessous) :
 ${JSON.stringify(statsContext, null, 2)}
@@ -1112,12 +1342,14 @@ ${JSON.stringify(statsContext, null, 2)}
 Utilise ces métriques pour contextualiser ton analyse. Par exemple : si "top_zero_result_queries" contient "filtreur" 6 fois, c'est probablement un synonyme manquant majeur.\n`
     : "";
 
+  // Message utilisateur : on liste les transcripts un par un
   const userMessage = `Voici ${calls.length} transcripts d'appels intéressants de la semaine écoulée. Analyse-les et produis le rapport JSON.
 ${statsBlock}
 ${calls.map((c, i) => `--- APPEL ${i + 1} (id: ${c.id}, assistant: ${c.assistant_name || c.assistant_id || "?"}, durée: ${c.duration_sec}s, fin: ${c.ended_reason}, tools: ${c.tool_calls_made.join(", ") || "aucun"}) ---
 ${c.transcript}
 `).join("\n\n")}`;
 
+  // Appel à l'API Anthropic
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -1130,7 +1362,7 @@ ${c.transcript}
       max_tokens: 8192,
       system: COACH_SYSTEM_PROMPT,
       tools: [COACH_TOOL_SCHEMA],
-      // Force Claude à utiliser ce tool spécifique — garantit JSON valide selon le schéma
+      // On FORCE Claude à appeler ce tool spécifique — sinon il pourrait répondre en texte libre
       tool_choice: { type: "tool", name: "submit_weekly_report" },
       messages: [{ role: "user", content: userMessage }],
     }),
@@ -1143,7 +1375,8 @@ ${c.transcript}
 
   const data = await response.json();
 
-  // Avec tool_use forcé, Claude DOIT appeler submit_weekly_report — on extrait l'input
+  // Avec tool_use forcé, Claude DOIT avoir appelé submit_weekly_report.
+  // On trouve le bloc « tool_use » dans sa réponse et on extrait son input.
   const toolUseBlock = (data.content || []).find(
     b => b.type === "tool_use" && b.name === "submit_weekly_report"
   );
@@ -1153,6 +1386,8 @@ ${c.transcript}
   }
 
   const report = toolUseBlock.input;
+
+  // Calcul du coût en USD (Sonnet 4.6 = $3/M input, $15/M output)
   const cost_usd = data.usage
     ? ((data.usage.input_tokens * 3 + data.usage.output_tokens * 15) / 1_000_000)
     : null;
@@ -1160,11 +1395,13 @@ ${c.transcript}
   return { report, cost_usd, raw_text: JSON.stringify(data.content) };
 }
 
-// --- 4. FORMATAGE HTML du rapport pour le courriel ---
+// --- ÉTAPE 4. Formatage HTML du rapport (pour le courriel) ---
 function reportToHtml(report, meta) {
+  // Helper interne pour échapper le HTML (sécurité contre injection)
   const escapeHtml = s => String(s ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+  // Liste des problèmes identifiés
   const issuesList = (report.top_issues || []).map(i => `
     <li style="margin-bottom: 16px;">
       <strong>#${escapeHtml(i.rank)} — ${escapeHtml(i.issue)}</strong> <em>(${escapeHtml(i.frequency)})</em><br>
@@ -1174,6 +1411,7 @@ function reportToHtml(report, meta) {
       <em>Extrait :</em> ${escapeHtml(i.example_transcript_excerpt)}
     </li>`).join("");
 
+  // Liste des synonymes manquants
   const synonymsList = (report.missing_synonyms || []).map(s =>
     `<li><code>${escapeHtml(s.word_heard)}</code> → <code>${escapeHtml(s.should_match)}</code> (${escapeHtml(s.context)})</li>`
   ).join("");
@@ -1181,26 +1419,30 @@ function reportToHtml(report, meta) {
   const gapsList = (report.knowledge_gaps || []).map(g => `<li>${escapeHtml(g)}</li>`).join("");
   const winsList = (report.wins || []).map(w => `<li>${escapeHtml(w)}</li>`).join("");
 
-  // Section métriques objectives
+  // ─── Section MÉTRIQUES (générée si meta.stats existe) ───
   const stats = meta.stats || null;
   let metricsHtml = "";
   if (stats) {
     const c = stats.calls;
     const e = stats.events;
 
+    // Tableau « par assistant »
     const assistantRows = Object.entries(c.by_assistant || {})
       .sort((a, b) => b[1] - a[1])
       .map(([name, n]) => `<li>${escapeHtml(name)} : <strong>${n}</strong> appel(s)</li>`).join("");
 
+    // Tableau « raisons de fin »
     const reasonRows = Object.entries(c.by_ended_reason || {})
       .sort((a, b) => b[1] - a[1])
       .map(([reason, n]) => `<li><code>${escapeHtml(reason)}</code> : ${n}</li>`).join("");
 
+    // Top 5 heures de pic
     const peakHours = Object.entries(c.by_hour_local || {})
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([h, n]) => `${h}h : ${n}`).join(" · ");
 
+    // Tableau des requêtes Shopify
     const topQ = (e.product_searches?.top_queries || [])
       .map(q => `<li><code>${escapeHtml(q.query)}</code> — ${q.count}×</li>`).join("");
     const zeroQ = (e.product_searches?.top_zero_result_queries || [])
@@ -1208,6 +1450,7 @@ function reportToHtml(report, meta) {
     const cascade = Object.entries(e.product_searches?.cascade_level_distribution || {})
       .map(([lvl, n]) => `<code>${escapeHtml(lvl)}</code>: ${n}`).join(" · ");
 
+    // Tableau des erreurs
     const errorRows = Object.entries(e.errors?.by_where || {})
       .map(([where, n]) => `<li><code>${escapeHtml(where)}</code> : ${n}</li>`).join("");
 
@@ -1253,6 +1496,7 @@ function reportToHtml(report, meta) {
     `;
   }
 
+  // HTML final du courriel
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 720px; margin: auto; color: #1a1a1a;">
       <h1 style="color: #0a6cb9;">🏊 Rapport hebdomadaire — Barracuda Coach IA</h1>
@@ -1282,7 +1526,7 @@ function reportToHtml(report, meta) {
     </div>`;
 }
 
-// --- 5. ENVOI courriel via Resend ---
+// --- ÉTAPE 5. Envoi du courriel via Resend ---
 async function sendEmailReport(report, meta) {
   if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY missing");
   if (!REPORT_EMAIL_TO) throw new Error("REPORT_EMAIL_TO missing");
@@ -1312,23 +1556,27 @@ async function sendEmailReport(report, meta) {
   return await response.json();
 }
 
-// --- 6. ORCHESTRATION ---
+// --- ÉTAPE 6. Orchestration : la fonction qui enchaîne tout ---
+// C'est cette fonction qui est appelée chaque dimanche (et par /weekly-analysis manuel)
 async function runWeeklyAnalysis() {
+  // Période : les 7 derniers jours
   const endDate = new Date();
   const startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   console.log(`[coach] Starting weekly analysis ${startDate.toISOString()} → ${endDate.toISOString()}`);
 
+  // ① Fetch les appels VAPI de la semaine
   const allCalls = await fetchVapiCalls(startDate, endDate);
   console.log(`[coach] Fetched ${allCalls.length} calls`);
 
-  // Snapshot des events SANS drain (drain seulement après email envoyé avec succès)
+  // ② Snapshot des events SANS vider la liste (drain seulement après email envoyé OK)
   const eventsSnapshot = peekEvents();
   const callStats = computeCallStats(allCalls);
   const eventStats = computeEventStats(eventsSnapshot);
   const stats = { calls: callStats, events: eventStats };
   console.log(`[coach] Stats: ${callStats.total_calls} calls, ${eventsSnapshot.length} events captured`);
 
+  // Objet « meta » qu'on passe à l'email
   const meta = {
     total_fetched: allCalls.length,
     cost_usd: 0,
@@ -1336,11 +1584,13 @@ async function runWeeklyAnalysis() {
     period: `${startDate.toISOString().split("T")[0]} → ${endDate.toISOString().split("T")[0]}`,
   };
 
+  // Si vraiment AUCUNE activité (ni appels, ni events), on saute
   if (allCalls.length === 0 && eventsSnapshot.length === 0) {
     console.log(`[coach] No calls and no events this period, skipping analysis.`);
     return { skipped: true, reason: "no_activity" };
   }
 
+  // ③ Filtre les appels « intéressants »
   const interesting = allCalls.filter(isInterestingCall).map(compactCallForAnalysis);
   console.log(`[coach] ${interesting.length} interesting calls after pre-filtering`);
 
@@ -1348,7 +1598,7 @@ async function runWeeklyAnalysis() {
   let cost_usd = 0;
 
   if (interesting.length === 0) {
-    // Pas d'appel problématique : mini-rapport positif, on envoie quand même les métriques
+    // Pas d'appel problématique → mini-rapport positif (mais on envoie quand même les métriques)
     report = {
       period: meta.period,
       total_calls_analyzed: 0,
@@ -1362,6 +1612,7 @@ async function runWeeklyAnalysis() {
       wins: allCalls.length > 0 ? [`${allCalls.length} appels gérés sans signaux d'alerte`] : [],
     };
   } else {
+    // ④ Analyse par Claude
     const result = await analyzeWithClaude(interesting, stats);
     report = result.report;
     cost_usd = result.cost_usd;
@@ -1369,10 +1620,13 @@ async function runWeeklyAnalysis() {
   }
 
   meta.cost_usd = cost_usd;
+
+  // ⑤ Envoi du courriel
   await sendEmailReport(report, meta);
   console.log(`[coach] Email sent to ${REPORT_EMAIL_TO}`);
 
-  // Drain APRÈS succès email — si crash avant ici, on garde les events pour la prochaine fois
+  // ⑥ Drain des events SEULEMENT APRÈS succès email
+  // (si on draine avant et que l'email échoue, on perd les events de la semaine pour rien)
   const drained = drainEvents();
   console.log(`[coach] Drained ${drained.length} events after successful email`);
 
@@ -1386,7 +1640,10 @@ async function runWeeklyAnalysis() {
   };
 }
 
-// --- 7. ENDPOINT manuel + déclencheur cron interne ---
+// --- ÉTAPE 7. Endpoint manuel + déclencheur cron interne ---
+
+// Endpoint manuel : POST /weekly-analysis?secret=<ANALYSIS_SECRET>
+// (Pratique pour tester sans attendre dimanche)
 app.post("/weekly-analysis", async (req, res) => {
   const providedSecret = req.query.secret || req.body?.secret;
   if (providedSecret !== ANALYSIS_SECRET) {
@@ -1402,8 +1659,9 @@ app.post("/weekly-analysis", async (req, res) => {
   }
 });
 
-// Cron interne : check toutes les 60 min, déclenche dimanche 23h, timezone Toronto
-// Réliable même si Railway redémarre (la fenêtre 23:00–23:59 du dimanche couvre le redémarrage)
+// Cron interne : vérifie chaque heure si on est dimanche 23h Toronto.
+// Si oui, et qu'on n'a pas déjà tourné aujourd'hui, on lance l'analyse.
+// La fenêtre 23:00–23:59 couvre les éventuels redémarrages Railway pendant cette heure.
 let lastWeeklyRunDate = null;
 setInterval(async () => {
   try {
@@ -1411,6 +1669,7 @@ setInterval(async () => {
     const local = new Date(now.toLocaleString("en-US", { timeZone: ANALYSIS_TIMEZONE }));
     const todayStr = local.toISOString().split("T")[0];
 
+    // Dimanche = jour 0, à 23h, et pas déjà tourné aujourd'hui
     if (local.getDay() === 0 && local.getHours() === 23 && lastWeeklyRunDate !== todayStr) {
       lastWeeklyRunDate = todayStr;
       console.log(`[coach] CRON triggered at ${local.toISOString()} (local TZ ${ANALYSIS_TIMEZONE})`);
@@ -1420,12 +1679,15 @@ setInterval(async () => {
   } catch (err) {
     console.error("[coach] CRON failed:", err);
   }
-}, 60 * 60 * 1000); // 60 minutes
+}, 60 * 60 * 1000); // toutes les 60 minutes
 
 
-// ============================================================
-// HEALTH CHECK
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  14. HEALTH CHECK & ENDPOINTS DE DIAGNOSTIC                            │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// GET / — page d'accueil du serveur, montre l'état de santé
+// (utile pour vérifier que tout est bien configuré et que le serveur tourne)
 
 app.get("/", (_req, res) => {
   res.json({
@@ -1444,15 +1706,15 @@ app.get("/", (_req, res) => {
     shopify_token_configured: !!SHOPIFY_TOKEN,
     vapi_configured: !!(VAPI_PRIVATE_KEY && VAPI_ASSISTANT_ID),
     coach_configured: !!(ANTHROPIC_API_KEY && RESEND_API_KEY && REPORT_EMAIL_TO),
-    assistants_map_loaded: Object.keys(VAPI_ASSISTANTS_MAP).length,
+    assistants_map_loaded: Object.keys(VAPI_ASSISTANTS_MAP).length,   // 3 si bien configuré
     sms_sessions_active: smsSessions.size,
     events_buffered: EVENTS.length,
     api_version: SHOPIFY_API_VERSION,
   });
 });
 
-// Stats live des events in-memory (depuis le dernier drain par le coach)
-// Pratique pour debug : voir en temps réel les recherches, erreurs, SMS de la journée.
+// GET /events/stats — voir les stats des events en temps réel
+// (utile pour vérifier que les recherches sont bien loggées avant le rapport hebdo)
 app.get("/events/stats", (_req, res) => {
   const events = peekEvents();
   res.json({
@@ -1464,13 +1726,19 @@ app.get("/events/stats", (_req, res) => {
 });
 
 
-// ============================================================
-// ROUTE — POST /search_shopify_orders  (tool VAPI)
-// Lookup d'une commande par n° (#1234 ou 1234)
-// Retourne : statut paiement + statut fulfillment + items achetés
-// Permission Shopify requise : scope `read_orders` sur l'app custom
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  15. ROUTE — POST /search_shopify_orders                              │
+// │       (Le tool que l'IA VAPI appelle pour chercher une commande)       │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// Le client donne son numéro de commande (avec ou sans le #),
+// on cherche dans Shopify, on renvoie le statut + les items.
+//
+// ⚠️ PLAN SHOPIFY BASIC : on ne peut PAS accéder aux infos client
+// (nom, email, téléphone, adresse). Cette query demande seulement
+// les statuts + les items, qui sont autorisés.
 
+// La requête GraphQL pour récupérer une commande
 const ORDER_GQL = `
   query GetOrder($q: String!) {
     orders(first: 5, query: $q, sortKey: CREATED_AT, reverse: true) {
@@ -1498,7 +1766,7 @@ const ORDER_GQL = `
   }
 `;
 
-// Traduit les statuts Shopify (en majuscules) en libellés FR courts pour l'IA
+// Traduit le statut financier Shopify (en anglais MAJ) en libellé FR pour l'IA
 const FINANCIAL_STATUS_FR = {
   PAID: "payée",
   PENDING: "en attente de paiement",
@@ -1510,6 +1778,7 @@ const FINANCIAL_STATUS_FR = {
   EXPIRED: "expirée",
 };
 
+// Traduit le statut de livraison en FR
 const FULFILLMENT_STATUS_FR = {
   FULFILLED: "expédiée",
   UNFULFILLED: "non expédiée",
@@ -1522,6 +1791,7 @@ const FULFILLMENT_STATUS_FR = {
   SCHEDULED: "planifiée",
 };
 
+// Formate une commande pour l'IA : statuts traduits + items lisibles
 function formatOrder(o) {
   const items = (o.lineItems?.edges || []).map(e => ({
     title: e.node.title,
@@ -1547,12 +1817,13 @@ function formatOrder(o) {
   };
 }
 
+// Endpoint POST /search_shopify_orders
 app.post("/search_shopify_orders", async (req, res) => {
   const { toolCallId, args } = getVapiToolCall(req);
   const start = Date.now();
 
   try {
-    // Accepter n'importe lequel des noms de champ que l'IA pourrait utiliser
+    // L'IA peut envoyer le numéro sous différents noms de champ — on accepte tout
     const raw = String(
       args.order_number ?? args.order_id ?? args.number ??
       args.query ?? args.q ?? args.order ?? ""
@@ -1567,7 +1838,7 @@ app.post("/search_shopify_orders", async (req, res) => {
       }));
     }
 
-    // Normalise : retire tout ce qui n'est pas chiffre/lettre puis ajoute # devant si manquant
+    // Nettoyage : retire le # initial et les espaces
     const cleaned = raw.replace(/^#+/, "").replace(/\s+/g, "");
     if (!cleaned) {
       return res.json(vapiResult(toolCallId, {
@@ -1579,6 +1850,7 @@ app.post("/search_shopify_orders", async (req, res) => {
       }));
     }
 
+    // Construit la requête Shopify (on remet le # devant pour le format Shopify)
     const shopifyQuery = `name:#${cleaned}`;
 
     const data = await fetchShopifyGraphQL(ORDER_GQL, { q: shopifyQuery });
@@ -1587,6 +1859,7 @@ app.post("/search_shopify_orders", async (req, res) => {
 
     console.log(`[search_shopify_orders] input="${raw}" query="${shopifyQuery}" found=${orders.length} ms=${ms}ms`);
 
+    // Log événement pour les stats du coach hebdo
     logEvent("shopify_order_search", {
       order_number: cleaned,
       found: orders.length > 0,
@@ -1594,6 +1867,7 @@ app.post("/search_shopify_orders", async (req, res) => {
       ms,
     });
 
+    // Aucune commande trouvée
     if (orders.length === 0) {
       return res.json(vapiResult(toolCallId, {
         found: false,
@@ -1605,6 +1879,7 @@ app.post("/search_shopify_orders", async (req, res) => {
       }));
     }
 
+    // Commande trouvée → on construit un résumé lisible pour l'IA
     const main = orders[0];
     const summary = `Commande ${main.order_number} du ${new Date(main.created_at).toLocaleDateString("fr-CA")} : ${main.financial_status_fr}, ${main.fulfillment_status_fr}. ${main.items_count} article(s) : ${main.items.map(i => `${i.quantity}× ${i.title}`).join(", ")}.`;
 
@@ -1633,10 +1908,15 @@ app.post("/search_shopify_orders", async (req, res) => {
 });
 
 
-// ============================================================
-// DIAGNOSTIC SHOPIFY — vérifie auth + liste 3 produits sample
-// Hit depuis le navigateur : /diagnose-shopify
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  16. DIAGNOSTIC SHOPIFY                                               │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// GET /diagnose-shopify — visite l'URL dans un navigateur pour vérifier :
+//   • que la connexion à Shopify fonctionne
+//   • que le token a les bonnes permissions
+//   • voir 3 produits exemples du catalogue
+// (Pratique quand on suspecte un problème côté Shopify)
 
 app.get("/diagnose-shopify", async (_req, res) => {
   try {
@@ -1674,9 +1954,13 @@ app.get("/diagnose-shopify", async (_req, res) => {
 });
 
 
-// ============================================================
-// LISTEN
-// ============================================================
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  17. DÉMARRAGE DU SERVEUR                                             │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// C'est la dernière étape : on dit à Express d'écouter sur le port.
+// Quand tu vois « [BOOT] Server listening on port X » dans les logs Railway,
+// ça veut dire que tout est prêt à recevoir des requêtes.
 
 app.listen(PORT, () => {
   console.log(`[BOOT] Server listening on port ${PORT}`);

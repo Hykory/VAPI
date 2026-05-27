@@ -870,12 +870,21 @@ function escapeXml(s = "") {
 // Appelle l'API VAPI Chat avec le texte du client.
 // Si on a un previousChatId (= conversation déjà entamée), on le passe pour
 // maintenir le contexte (l'IA se souvient des SMS précédents).
-async function vapiChat(message, previousChatId = null) {
+async function vapiChat(message, previousChatId = null, channel = "sms") {
   if (!VAPI_PRIVATE_KEY || !VAPI_ASSISTANT_ID) {
     throw new Error("VAPI credentials missing (VAPI_PRIVATE_KEY / VAPI_ASSISTANT_ID)");
   }
 
-  const body = { assistantId: VAPI_ASSISTANT_ID, input: message };
+  const body = {
+    assistantId: VAPI_ASSISTANT_ID,
+    input: message,
+    // On injecte le canal pour que le prompt VAPI puisse adapter le format
+    // de réponse (voix : pas d'URL ; SMS : URL cliquable OK).
+    // Référence dans le prompt VAPI avec {{channel}}.
+    assistantOverrides: {
+      variableValues: { channel },
+    },
+  };
   if (previousChatId) body.previousChatId = previousChatId;
 
   const response = await fetch("https://api.vapi.ai/chat", {
@@ -1739,6 +1748,10 @@ app.get("/events/stats", (_req, res) => {
 // les statuts + les items, qui sont autorisés.
 
 // La requête GraphQL pour récupérer une commande
+// ⚠️ On fetch maintenant aussi les `fulfillments` pour avoir tracking + ETA
+//    - createdAt           : date d'expédition réelle
+//    - estimatedDeliveryAt : ETA fournie par Shopify Shipping / carrier (peut être null)
+//    - trackingInfo[]      : { company, number, url } — souvent 1 seul élément
 const ORDER_GQL = `
   query GetOrder($q: String!) {
     orders(first: 5, query: $q, sortKey: CREATED_AT, reverse: true) {
@@ -1758,6 +1771,16 @@ const ORDER_GQL = `
                 variantTitle
                 sku
               }
+            }
+          }
+          fulfillments(first: 5) {
+            createdAt
+            status
+            estimatedDeliveryAt
+            trackingInfo {
+              company
+              number
+              url
             }
           }
         }
@@ -1791,6 +1814,102 @@ const FULFILLMENT_STATUS_FR = {
   SCHEDULED: "planifiée",
 };
 
+// ─── Estimation de livraison (ETA) ──────────────────────────────────────
+//
+// Stratégie :
+//  1. Si Shopify fournit `estimatedDeliveryAt` → on l'utilise tel quel.
+//  2. Sinon → estimation heuristique par carrier (jours OUVRABLES depuis l'expédition).
+//
+// Fourchettes calibrées pour livraisons au Québec depuis l'Outaouais.
+// On retourne une plage (low/high) plutôt qu'une date unique pour rester honnête
+// (l'IA pourra dire « entre le 2 et le 5 juin »).
+const CARRIER_DELAYS_BUSINESS_DAYS = {
+  CANADA_POST: { low: 4, high: 7 },   // mix Regular/Expedited, prudent
+  UPS:         { low: 1, high: 4 },   // Standard Ground au QC
+  PUROLATOR:   { low: 1, high: 3 },
+  FEDEX:       { low: 2, high: 5 },
+  DICOM:       { low: 1, high: 3 },
+  DEFAULT:     { low: 3, high: 7 },
+};
+
+// Normalise le nom de la compagnie de livraison renvoyé par Shopify
+// vers une clé interne (les marchands tapent souvent en libre).
+function normalizeCarrier(companyRaw) {
+  const c = String(companyRaw || "").toLowerCase().trim();
+  if (!c) return "DEFAULT";
+  if (c.includes("canada post") || c.includes("postes canada") || c === "canadapost") return "CANADA_POST";
+  if (c.includes("ups") || c.includes("united parcel")) return "UPS";
+  if (c.includes("purolator")) return "PUROLATOR";
+  if (c.includes("fedex")) return "FEDEX";
+  if (c.includes("dicom") || c.includes("gls")) return "DICOM";
+  return "DEFAULT";
+}
+
+// Affichage lisible du carrier pour l'IA (français)
+const CARRIER_LABEL_FR = {
+  CANADA_POST: "Postes Canada",
+  UPS: "UPS",
+  PUROLATOR: "Purolator",
+  FEDEX: "FedEx",
+  DICOM: "Dicom",
+  DEFAULT: "le transporteur",
+};
+
+// Ajoute N jours ouvrables (skip samedi/dimanche) à une date
+function addBusinessDays(date, days) {
+  const d = new Date(date);
+  let added = 0;
+  while (added < days) {
+    d.setDate(d.getDate() + 1);
+    const day = d.getDay(); // 0 = dim, 6 = sam
+    if (day !== 0 && day !== 6) added++;
+  }
+  return d;
+}
+
+// Formate une date en français QC : « lundi 2 juin »
+function formatDateFr(date) {
+  return new Date(date).toLocaleDateString("fr-CA", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
+// Calcule l'ETA pour un fulfillment Shopify.
+// Retourne { eta_low, eta_high, eta_human_fr, source } ou null si rien d'utile.
+function computeEta(fulfillment) {
+  if (!fulfillment) return null;
+
+  // Cas 1 : Shopify connaît déjà l'ETA exacte → on l'utilise
+  if (fulfillment.estimatedDeliveryAt) {
+    const eta = new Date(fulfillment.estimatedDeliveryAt);
+    return {
+      eta_low: eta.toISOString(),
+      eta_high: eta.toISOString(),
+      eta_human_fr: `arrivée prévue le ${formatDateFr(eta)}`,
+      source: "shopify",
+    };
+  }
+
+  // Cas 2 : on calcule depuis carrier + date d'expédition
+  if (!fulfillment.createdAt) return null;
+  const shippedAt = new Date(fulfillment.createdAt);
+  const carrier = normalizeCarrier(fulfillment.trackingInfo?.[0]?.company);
+  const delay = CARRIER_DELAYS_BUSINESS_DAYS[carrier] || CARRIER_DELAYS_BUSINESS_DAYS.DEFAULT;
+
+  const etaLow = addBusinessDays(shippedAt, delay.low);
+  const etaHigh = addBusinessDays(shippedAt, delay.high);
+  const carrierLabel = CARRIER_LABEL_FR[carrier];
+
+  return {
+    eta_low: etaLow.toISOString(),
+    eta_high: etaHigh.toISOString(),
+    eta_human_fr: `arrivée prévue entre le ${formatDateFr(etaLow)} et le ${formatDateFr(etaHigh)} via ${carrierLabel}`,
+    source: "estimated",
+  };
+}
+
 // Formate une commande pour l'IA : statuts traduits + items lisibles
 function formatOrder(o) {
   const items = (o.lineItems?.edges || []).map(e => ({
@@ -1803,6 +1922,13 @@ function formatOrder(o) {
   const financial = o.displayFinancialStatus || "UNKNOWN";
   const fulfillment = o.displayFulfillmentStatus || "UNKNOWN";
 
+  // On prend le fulfillment le plus récent (la commande peut en avoir plusieurs
+  // si elle a été expédiée en plusieurs colis). Le plus pertinent = le dernier.
+  const fulfillments = (o.fulfillments || []).filter(f => f.status === "SUCCESS" || f.status === "OPEN" || !f.status);
+  const lastFulfillment = fulfillments[fulfillments.length - 1] || null;
+  const tracking = lastFulfillment?.trackingInfo?.[0] || null;
+  const eta = computeEta(lastFulfillment);
+
   return {
     order_number: o.name,
     created_at: o.createdAt,
@@ -1814,6 +1940,15 @@ function formatOrder(o) {
     currency: o.totalPriceSet?.shopMoney?.currencyCode || "CAD",
     items,
     items_count: items.length,
+    // Infos d'expédition (null si non expédiée ou pas de tracking enregistré)
+    shipped_at: lastFulfillment?.createdAt || null,
+    tracking_number: tracking?.number || null,
+    tracking_url: tracking?.url || null,
+    carrier: tracking?.company || null,
+    eta_low: eta?.eta_low || null,
+    eta_high: eta?.eta_high || null,
+    eta_human_fr: eta?.eta_human_fr || null,
+    eta_source: eta?.source || null,
   };
 }
 
@@ -1881,7 +2016,18 @@ app.post("/search_shopify_orders", async (req, res) => {
 
     // Commande trouvée → on construit un résumé lisible pour l'IA
     const main = orders[0];
-    const summary = `Commande ${main.order_number} du ${new Date(main.created_at).toLocaleDateString("fr-CA")} : ${main.financial_status_fr}, ${main.fulfillment_status_fr}. ${main.items_count} article(s) : ${main.items.map(i => `${i.quantity}× ${i.title}`).join(", ")}.`;
+
+    // Bout de phrase sur l'expédition + ETA si la commande a été shippée
+    let shippingPart = "";
+    if (main.shipped_at) {
+      const shippedDate = new Date(main.shipped_at).toLocaleDateString("fr-CA");
+      shippingPart = ` Expédiée le ${shippedDate}`;
+      if (main.eta_human_fr) shippingPart += `, ${main.eta_human_fr}`;
+      if (main.tracking_number) shippingPart += `. Numéro de suivi : ${main.tracking_number}`;
+      shippingPart += ".";
+    }
+
+    const summary = `Commande ${main.order_number} du ${new Date(main.created_at).toLocaleDateString("fr-CA")} : ${main.financial_status_fr}, ${main.fulfillment_status_fr}. ${main.items_count} article(s) : ${main.items.map(i => `${i.quantity}× ${i.title}`).join(", ")}.${shippingPart}`;
 
     return res.json(vapiResult(toolCallId, {
       found: true,

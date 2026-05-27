@@ -884,12 +884,9 @@ async function vapiChat(message, previousChatId = null, channel = "sms") {
     ? "[CANAL: SMS — tu communiques par texto, pas par voix]\n\n"
     : "";
 
-  const finalInput = channelHint + message;
-  console.log(`[vapiChat] channel=${channel} previousChatId=${previousChatId || "NONE"} input="${finalInput.slice(0, 120)}..."`);
-
   const body = {
     assistantId: VAPI_ASSISTANT_ID,
-    input: finalInput,
+    input: channelHint + message,
   };
   if (previousChatId) body.previousChatId = previousChatId;
 

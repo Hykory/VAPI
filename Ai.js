@@ -299,7 +299,7 @@ const SYNONYMS = {
   "stabilisant": ["stabilizer", "acide cyanurique", "cya", "cyanuric"],
   "algicide":    ["algaecide", "algecide", "anti algues", "anti-algues"],
   "floculant":   ["flocculant", "clarifiant", "clarifier"],
-  "sel":         ["salt", "saline", "electrolyse", "electrolyseur", "salt cell"],
+  "sel":         ["salt", "saline", "electrolyse", "electrolyseur", "salt cell", "cell", "cellule", "intellichlor", "aquarite"],
   "oxygene":     ["oxygen", "peroxyde", "shock"],
   "choc":        ["shock", "superchloration", "super chlore"],
 
@@ -338,6 +338,11 @@ const SYNONYMS = {
   "raypak":      [],
   "intex":       [],
   "bestway":     [],
+  "bayrol":      [],
+  "bioguard":    [],
+  "hydropool":   [],
+  "sundance":    [],
+  "bullfrog":    [],
 
   // --- Tests d'eau ---
   "bandelette":  ["bandelettes", "strip", "strips", "test strip", "bandes test"],
@@ -346,14 +351,14 @@ const SYNONYMS = {
   "reactif":     ["reagent", "reactifs", "reagents"],
 
   // --- Spa ---
-  "spa":         ["hot tub", "jacuzzi", "tourbillon"],
+  "spa":         ["hot tub", "jacuzzi", "tourbillon", "bain a remous", "tub", "hydropool", "sundance", "bullfrog", "hydromassage"],
   "filtre spa":  ["spa filter", "filtre jacuzzi"],
 
   // --- Piscine générique ---
   "piscine":     ["pool", "swimming pool", "bassin"],
 
   // --- Couverture / hivernage ---
-  "couverture":  ["cover", "bache", "toile dhiver", "winter cover"],
+  "couverture":  ["cover", "bache", "toile dhiver", "winter cover", "couvert", "couvercle de spa", "spa cover"],
   "solaire":     ["solar cover", "couverture solaire", "bache solaire", "bulle"],
   "hivernage":   ["winter", "winterizing", "wintering", "fermeture"],
   "ouverture":   ["opening", "demarrage"],

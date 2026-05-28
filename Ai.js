@@ -2179,33 +2179,39 @@ const UPDATE_TAGS_GQL = `
   }
 `;
 
+// Tags TROP GÉNÉRIQUES qui polluent quand on cherche dans la description HTML
+// (ex: « pour piscines et spas » dans 80% des descriptions = spa+piscine partout).
+// Pour ces tags, on cherche UNIQUEMENT dans le titre + product_type + vendor.
+const BROAD_TAGS = new Set(["spa", "piscine", "ouverture", "hivernage", "couverture"]);
+
 // Pour un produit donné, renvoie la liste des tags catégoriels à ajouter.
 // Algorithme :
-//   1. Combine title + description + product_type + vendor en un seul texte
-//   2. Pour chaque clé canonique de SYNONYMS, vérifie si un synonyme apparaît
-//      dans le texte (mot complet, pas substring)
-//   3. Si oui, suggère la clé canonique comme nouveau tag
+//   1. Combine title + product_type + vendor en TEXTE_STRICT (toujours fiable)
+//   2. Combine TEXTE_STRICT + descriptionHtml en TEXTE_LARGE
+//   3. Pour chaque clé canonique de SYNONYMS, vérifie si un synonyme apparaît :
+//        - dans TEXTE_STRICT si le tag est dans BROAD_TAGS (trop générique)
+//        - dans TEXTE_LARGE sinon (recherche complète)
 //   4. Filtre les tags déjà présents (case-insensitive)
 //   5. Limite à 5 nouveaux tags max
 function suggestTagsForProduct(product) {
-  const rawText = [
-    product.title,
-    product.descriptionHtml,
-    product.productType,
-    product.vendor,
-  ].filter(Boolean).join(" ");
-  const text = normalize(rawText);
+  const strictText = normalize([
+    product.title, product.productType, product.vendor,
+  ].filter(Boolean).join(" "));
+
+  const broadText = normalize([
+    product.title, product.productType, product.vendor, product.descriptionHtml,
+  ].filter(Boolean).join(" "));
 
   const existingNormalized = new Set((product.tags || []).map(t => normalize(t)));
   const suggested = [];
 
   for (const canonical of Object.keys(SYNONYMS)) {
     const allTerms = [canonical, ...SYNONYMS[canonical]].map(normalize).filter(Boolean);
+    const searchText = BROAD_TAGS.has(canonical) ? strictText : broadText;
     const matches = allTerms.some(term => {
-      // Escape regex special chars
       const safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const regex = new RegExp(`\\b${safe}\\b`, "i");
-      return regex.test(text);
+      return regex.test(searchText);
     });
     if (matches && !existingNormalized.has(normalize(canonical))) {
       suggested.push(canonical);

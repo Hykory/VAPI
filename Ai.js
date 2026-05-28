@@ -1575,10 +1575,10 @@ async function sendEmailReport(report, meta) {
 
 // --- ÉTAPE 6. Orchestration : la fonction qui enchaîne tout ---
 // C'est cette fonction qui est appelée chaque dimanche (et par /weekly-analysis manuel)
-async function runWeeklyAnalysis() {
-  // Période : les 7 derniers jours
+async function runWeeklyAnalysis(days = 7) {
+  // Période : les N derniers jours (défaut 7)
   const endDate = new Date();
-  const startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const startDate = new Date(endDate.getTime() - days * 24 * 60 * 60 * 1000);
 
   console.log(`[coach] Starting weekly analysis ${startDate.toISOString()} → ${endDate.toISOString()}`);
 
@@ -1667,9 +1667,13 @@ app.post("/weekly-analysis", async (req, res) => {
     return res.status(401).json({ error: "Invalid secret" });
   }
 
+  // Période paramétrable : ?days=N (défaut 7)
+  const daysRaw = req.query.days || req.body?.days;
+  const days = Math.max(1, Math.min(30, parseInt(daysRaw, 10) || 7));
+
   try {
-    const result = await runWeeklyAnalysis();
-    res.json({ ok: true, ...result });
+    const result = await runWeeklyAnalysis(days);
+    res.json({ ok: true, period_days: days, ...result });
   } catch (err) {
     console.error("[coach] FATAL:", err);
     res.status(500).json({ ok: false, error: err.message });

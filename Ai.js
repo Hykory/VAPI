@@ -2188,6 +2188,14 @@ const BROAD_TAGS = new Set(["spa", "piscine", "ouverture", "hivernage", "couvert
 // quand on détecte ces marques (compense la restriction au titre).
 const SPA_BRANDS = new Set(["bullfrog", "hydropool", "sundance"]);
 
+// Synonymes ambigus à IGNORER pour le tagging auto (mais gardés pour la
+// recherche utilisateur). Ce sont des abréviations trop courtes ou des mots
+// trop génériques qui causent des matches involontaires dans les descriptions.
+const SHORT_AMBIGUOUS = new Set([
+  "ta", "alc", "ch", "cya", "cb",      // abréviations chimie (ambiguës)
+  "controle",                           // trop générique (valve de contrôle, etc.)
+]);
+
 // Pour un produit donné, renvoie la liste des tags catégoriels à ajouter.
 // Algorithme :
 //   1. titre normalisé → utilisé pour les BROAD_TAGS (très strict)
@@ -2205,7 +2213,10 @@ function suggestTagsForProduct(product) {
   const suggested = [];
 
   for (const canonical of Object.keys(SYNONYMS)) {
-    const allTerms = [canonical, ...SYNONYMS[canonical]].map(normalize).filter(Boolean);
+    const allTerms = [canonical, ...SYNONYMS[canonical]]
+      .map(normalize)
+      .filter(Boolean)
+      .filter(t => !SHORT_AMBIGUOUS.has(t));
     const searchText = BROAD_TAGS.has(canonical) ? titleText : fullText;
     const matches = allTerms.some(term => {
       const safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

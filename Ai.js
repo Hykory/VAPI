@@ -2179,26 +2179,25 @@ const UPDATE_TAGS_GQL = `
   }
 `;
 
-// Tags TROP GÉNÉRIQUES qui polluent quand on cherche dans la description HTML
-// (ex: « pour piscines et spas » dans 80% des descriptions = spa+piscine partout).
-// Pour ces tags, on cherche UNIQUEMENT dans le titre + product_type + vendor.
+// Tags TROP GÉNÉRIQUES qui polluent partout (productType Shopify type « Spa &
+// Piscine Equipment » est très courant). Pour ces tags, on cherche UNIQUEMENT
+// dans le titre du produit.
 const BROAD_TAGS = new Set(["spa", "piscine", "ouverture", "hivernage", "couverture"]);
+
+// Marques qui font UNIQUEMENT des spas → on tag automatiquement `spa`
+// quand on détecte ces marques (compense la restriction au titre).
+const SPA_BRANDS = new Set(["bullfrog", "hydropool", "sundance"]);
 
 // Pour un produit donné, renvoie la liste des tags catégoriels à ajouter.
 // Algorithme :
-//   1. Combine title + product_type + vendor en TEXTE_STRICT (toujours fiable)
-//   2. Combine TEXTE_STRICT + descriptionHtml en TEXTE_LARGE
-//   3. Pour chaque clé canonique de SYNONYMS, vérifie si un synonyme apparaît :
-//        - dans TEXTE_STRICT si le tag est dans BROAD_TAGS (trop générique)
-//        - dans TEXTE_LARGE sinon (recherche complète)
-//   4. Filtre les tags déjà présents (case-insensitive)
-//   5. Limite à 5 nouveaux tags max
+//   1. titre normalisé → utilisé pour les BROAD_TAGS (très strict)
+//   2. titre + product_type + vendor + descriptionHtml → utilisé pour le reste
+//   3. Pour chaque clé canonique de SYNONYMS, regex avec word boundary
+//   4. Règle métier : marque spa-only détectée → ajouter `spa` automatiquement
+//   5. Filtre les tags déjà présents (case-insensitive), limite 5
 function suggestTagsForProduct(product) {
-  const strictText = normalize([
-    product.title, product.productType, product.vendor,
-  ].filter(Boolean).join(" "));
-
-  const broadText = normalize([
+  const titleText = normalize(product.title || "");
+  const fullText = normalize([
     product.title, product.productType, product.vendor, product.descriptionHtml,
   ].filter(Boolean).join(" "));
 
@@ -2207,7 +2206,7 @@ function suggestTagsForProduct(product) {
 
   for (const canonical of Object.keys(SYNONYMS)) {
     const allTerms = [canonical, ...SYNONYMS[canonical]].map(normalize).filter(Boolean);
-    const searchText = BROAD_TAGS.has(canonical) ? strictText : broadText;
+    const searchText = BROAD_TAGS.has(canonical) ? titleText : fullText;
     const matches = allTerms.some(term => {
       const safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const regex = new RegExp(`\\b${safe}\\b`, "i");
@@ -2216,10 +2215,18 @@ function suggestTagsForProduct(product) {
     if (matches && !existingNormalized.has(normalize(canonical))) {
       suggested.push(canonical);
     }
-    if (suggested.length >= 5) break;
   }
 
-  return suggested;
+  // Règle métier : si une marque spa-only est détectée, ajouter `spa`
+  // (compense le fait que les produits Bullfrog/Hydropool n'ont souvent pas
+  // « spa » dans le titre)
+  if (!existingNormalized.has("spa") && !suggested.includes("spa")) {
+    if (suggested.some(t => SPA_BRANDS.has(t))) {
+      suggested.push("spa");
+    }
+  }
+
+  return suggested.slice(0, 5);
 }
 
 app.all("/tag-products", async (req, res) => {

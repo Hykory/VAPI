@@ -2129,7 +2129,187 @@ app.get("/diagnose-shopify", async (_req, res) => {
 
 
 // ╭───────────────────────────────────────────────────────────────────────╮
-// │  17. DÉMARRAGE DU SERVEUR                                             │
+// │  17. AUTO-TAGGING DES PRODUITS SHOPIFY                                │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// Endpoint pour ajouter automatiquement des tags catégoriels aux produits
+// Shopify, en s'appuyant sur le dictionnaire SYNONYMS (section 6).
+//
+// Utilisation :
+//   • DRY-RUN (lecture seule, recommandé d'abord) :
+//     GET /tag-products?secret=<ANALYSIS_SECRET>
+//   • APPLIQUER (modifie les produits dans Shopify) :
+//     GET /tag-products?secret=<ANALYSIS_SECRET>&apply=true
+//
+// Sécurités :
+//   • Aucune suppression de tags existants (juste ajout)
+//   • Aucune modif de titre, prix, stock, description
+//   • Max 5 nouveaux tags par produit
+//   • Rate limit : 500ms entre chaque productUpdate
+
+const LIST_PRODUCTS_GQL = `
+  query ListProducts($cursor: String) {
+    products(first: 100, after: $cursor) {
+      pageInfo { hasNextPage endCursor }
+      edges {
+        node {
+          id
+          title
+          descriptionHtml
+          productType
+          vendor
+          tags
+        }
+      }
+    }
+  }
+`;
+
+const UPDATE_TAGS_GQL = `
+  mutation UpdateTags($input: ProductInput!) {
+    productUpdate(input: $input) {
+      product { id tags }
+      userErrors { field message }
+    }
+  }
+`;
+
+// Pour un produit donné, renvoie la liste des tags catégoriels à ajouter.
+// Algorithme :
+//   1. Combine title + description + product_type + vendor en un seul texte
+//   2. Pour chaque clé canonique de SYNONYMS, vérifie si un synonyme apparaît
+//      dans le texte (mot complet, pas substring)
+//   3. Si oui, suggère la clé canonique comme nouveau tag
+//   4. Filtre les tags déjà présents (case-insensitive)
+//   5. Limite à 5 nouveaux tags max
+function suggestTagsForProduct(product) {
+  const rawText = [
+    product.title,
+    product.descriptionHtml,
+    product.productType,
+    product.vendor,
+  ].filter(Boolean).join(" ");
+  const text = normalize(rawText);
+
+  const existingNormalized = new Set((product.tags || []).map(t => normalize(t)));
+  const suggested = [];
+
+  for (const canonical of Object.keys(SYNONYMS)) {
+    const allTerms = [canonical, ...SYNONYMS[canonical]].map(normalize).filter(Boolean);
+    const matches = allTerms.some(term => {
+      // Escape regex special chars
+      const safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`\\b${safe}\\b`, "i");
+      return regex.test(text);
+    });
+    if (matches && !existingNormalized.has(normalize(canonical))) {
+      suggested.push(canonical);
+    }
+    if (suggested.length >= 5) break;
+  }
+
+  return suggested;
+}
+
+app.all("/tag-products", async (req, res) => {
+  const providedSecret = req.query.secret || req.body?.secret;
+  if (providedSecret !== ANALYSIS_SECRET) {
+    return res.status(401).json({ error: "Forbidden — secret invalide" });
+  }
+
+  const apply = (req.query.apply || req.body?.apply) === "true";
+  const start = Date.now();
+
+  try {
+    // 1. Fetch tous les produits (pagination par 100)
+    const allProducts = [];
+    let cursor = null;
+    let pageNum = 0;
+    while (true) {
+      pageNum++;
+      const data = await fetchShopifyGraphQL(LIST_PRODUCTS_GQL, { cursor });
+      const edges = data.products?.edges || [];
+      allProducts.push(...edges.map(e => e.node));
+      const pageInfo = data.products?.pageInfo;
+      console.log(`[tag-products] page ${pageNum}: +${edges.length}, total=${allProducts.length}`);
+      if (!pageInfo?.hasNextPage) break;
+      cursor = pageInfo.endCursor;
+    }
+
+    // 2. Calculer les suggestions
+    const report = [];
+    for (const product of allProducts) {
+      const newTags = suggestTagsForProduct(product);
+      if (newTags.length > 0) {
+        report.push({
+          id: product.id,
+          title: product.title,
+          current_tags: product.tags || [],
+          new_tags: newTags,
+        });
+      }
+    }
+
+    const unchangedCount = allProducts.length - report.length;
+    console.log(`[tag-products] scanned=${allProducts.length} to_modify=${report.length} unchanged=${unchangedCount}`);
+
+    // 3. Mode DRY-RUN : retourner le rapport
+    if (!apply) {
+      return res.json({
+        mode: "dry-run",
+        scanned: allProducts.length,
+        would_modify: report.length,
+        unchanged: unchangedCount,
+        duration_ms: Date.now() - start,
+        sample_changes: report.slice(0, 50),
+        total_changes_count: report.length,
+        next_step: `Pour appliquer : ajoute &apply=true à l'URL. Ex: /tag-products?secret=...&apply=true`,
+      });
+    }
+
+    // 4. Mode APPLY : pousser les mises à jour avec rate limit
+    let applied = 0;
+    const errors = [];
+    for (const item of report) {
+      const orig = allProducts.find(p => p.id === item.id);
+      const mergedTags = [...(orig.tags || []), ...item.new_tags];
+      try {
+        const result = await fetchShopifyGraphQL(UPDATE_TAGS_GQL, {
+          input: { id: item.id, tags: mergedTags },
+        });
+        const userErrors = result.productUpdate?.userErrors || [];
+        if (userErrors.length) {
+          errors.push({ title: item.title, errors: userErrors });
+        } else {
+          applied++;
+        }
+      } catch (err) {
+        errors.push({ title: item.title, error: err.message });
+      }
+      // Rate limit Shopify : ~2 req/sec
+      await new Promise(r => setTimeout(r, 550));
+      if (applied % 25 === 0) {
+        console.log(`[tag-products] applied ${applied}/${report.length}`);
+      }
+    }
+
+    return res.json({
+      mode: "apply",
+      scanned: allProducts.length,
+      applied,
+      errors: errors.length,
+      error_samples: errors.slice(0, 10),
+      duration_ms: Date.now() - start,
+    });
+  } catch (err) {
+    console.error(`[tag-products] ERROR:`, err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  18. DÉMARRAGE DU SERVEUR                                             │
 // ╰───────────────────────────────────────────────────────────────────────╯
 //
 // C'est la dernière étape : on dit à Express d'écouter sur le port.

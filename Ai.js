@@ -1994,28 +1994,18 @@ app.get("/diagnose-voicemail", async (req, res) => {
 
   let send_test = null;
   if (req.query.send === "1") {
-    if (!RESEND_API_KEY_VOICEMAIL) {
-      send_test = { ok: false, error: "RESEND_API_KEY_VOICEMAIL missing" };
-    } else {
-      try {
-        const r = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${RESEND_API_KEY_VOICEMAIL}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: VOICEMAIL_EMAIL_FROM,
-            to: [VOICEMAIL_EMAIL_TO],
-            subject: "Test diagnostic boite vocale Barracuda",
-            html: "<p>Test de diagnostic. Si vous recevez ce courriel, l'envoi Resend de la boite vocale fonctionne.</p>",
-          }),
-        });
-        const body = await r.text();
-        send_test = { http_status: r.status, ok: r.ok, resend_response: body.slice(0, 800) };
-      } catch (e) {
-        send_test = { ok: false, error: e.message };
-      }
+    // On appelle la VRAIE fonction d'envoi (celle qui plantait sur la timezone),
+    // avec des données factices, pour valider tout le chemin sans avoir à rappeler.
+    try {
+      const result = await sendVoicemailEmail({
+        recordingUrl: "https://example.com/diagnostic-test-aucun-audio",
+        durationSec: 7,
+        from: "TEST diagnostic",
+        callSid: "diagnostic-test",
+      });
+      send_test = { ok: true, sent_via: "sendVoicemailEmail", resend_id: result?.id || null };
+    } catch (e) {
+      send_test = { ok: false, error: e.message };
     }
   }
 

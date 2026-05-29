@@ -1939,6 +1939,55 @@ app.get("/events/stats", (_req, res) => {
   });
 });
 
+// GET /diagnose-voicemail — diagnostic de la boîte vocale
+//   • sans paramètre : montre la config + les derniers events voicemail_*
+//   • ?send=1 : envoie un VRAI courriel test via Resend et retourne la
+//     réponse exacte de Resend (HTTP + corps) → permet de voir POURQUOI
+//     un envoi échoue (domaine non vérifié, destinataire non autorisé, etc.)
+app.get("/diagnose-voicemail", async (req, res) => {
+  const config = {
+    voicemail_configured: !!RESEND_API_KEY_VOICEMAIL,
+    attachment_enabled: !!(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN),
+    email_to: VOICEMAIL_EMAIL_TO,
+    email_from: VOICEMAIL_EMAIL_FROM,
+    public_base_url: PUBLIC_BASE_URL,
+  };
+
+  // Derniers events liés à la voicemail (déclenchements, envois, erreurs)
+  const recent_voicemail_events = peekEvents()
+    .filter(e => typeof e.type === "string" && e.type.startsWith("voicemail"))
+    .slice(-20);
+
+  let send_test = null;
+  if (req.query.send === "1") {
+    if (!RESEND_API_KEY_VOICEMAIL) {
+      send_test = { ok: false, error: "RESEND_API_KEY_VOICEMAIL missing" };
+    } else {
+      try {
+        const r = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${RESEND_API_KEY_VOICEMAIL}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: VOICEMAIL_EMAIL_FROM,
+            to: [VOICEMAIL_EMAIL_TO],
+            subject: "Test diagnostic boite vocale Barracuda",
+            html: "<p>Test de diagnostic. Si vous recevez ce courriel, l'envoi Resend de la boite vocale fonctionne.</p>",
+          }),
+        });
+        const body = await r.text();
+        send_test = { http_status: r.status, ok: r.ok, resend_response: body.slice(0, 800) };
+      } catch (e) {
+        send_test = { ok: false, error: e.message };
+      }
+    }
+  }
+
+  res.json({ config, recent_voicemail_events, send_test });
+});
+
 
 // ╭───────────────────────────────────────────────────────────────────────╮
 // │  15. ROUTE — POST /search_shopify_orders                              │

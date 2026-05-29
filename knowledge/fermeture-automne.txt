@@ -1,0 +1,48 @@
+# Fermeture de piscine à l'automne (hivernage, procédure et produits)
+
+## Quand un client demande
+- « comment fermer ma piscine »
+- « comment hiverner ma piscine »
+- « préparer ma piscine pour l'hiver »
+- « quand fermer ma piscine »
+- « produits d'hivernage »
+- « toile d'hivernage »
+- « kit d'hivernage »
+- « vidange de piscine pour l'hiver »
+
+## Période typique au Québec
+- Région Gatineau / Outaouais : généralement entre mi-septembre et mi-octobre.
+- Attendre que la température de l'eau soit stable sous 15°C — réduit la croissance d'algues durant l'hiver.
+- Ne pas fermer trop tôt (algues sous la toile) ni trop tard (risque de gel).
+
+## Procédure standard (vue d'ensemble)
+1. Faire une dernière analyse d'eau, ajuster pH et alcalinité.
+2. Traitement à choc final.
+3. Ajouter algicide d'hiver (dose plus forte qu'en saison).
+4. Baisser le niveau d'eau selon le type de piscine (généralement sous les buses de retour ou les skimmers selon procédure).
+5. Vidanger la pompe, le filtre, le chauffage si applicable.
+6. Souffler les lignes de plomberie pour éviter le gel.
+7. Mettre des bouchons d'hivernage dans les buses et skimmers.
+8. Installer la toile d'hivernage.
+
+## Produits couramment utilisés à la fermeture
+- Algicide d'hiver (dose concentrée).
+- Stabilisant si besoin.
+- Bouchons d'hivernage (skimmer + buses).
+- Toile d'hivernage adaptée à la taille de la piscine.
+- Coussin d'air pour toiles d'hivernage de piscines creusées (optionnel).
+
+## ⚠️ À CONFIRMER PAR L'ÉQUIPE BARRACUDA
+- Y a-t-il un « kit de fermeture » Barracuda spécifique vendu en bundle ?
+- Est-ce que Barracuda offre un service de fermeture à domicile ? Si oui, à quel prix indicatif ?
+- Période où le service à domicile est saturé / liste d'attente ?
+- Délai recommandé entre dernier traitement choc et installation de la toile ?
+
+## Réponse vocale courte
+« Pour fermer votre piscine, on fait un dernier choc, on ajuste les paramètres d'eau, on vide les équipements pour éviter le gel et on installe la toile d'hivernage. Le mieux est de passer en magasin pour qu'on vous oriente vers les bons produits selon votre type de piscine. »
+
+## Escalade
+- Demande de service de fermeture à domicile → transferCall.
+- Question technique sur le soufflage des lignes ou la vidange du chauffage → transferCall.
+- Toile d'hivernage à commander sur mesure → transferCall ou visite magasin.
+- Première fermeture pour le client (jamais fait avant) → orienter vers visite magasin pour explication détaillée OU transferCall.

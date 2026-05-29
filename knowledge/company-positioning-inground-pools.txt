@@ -1,52 +1,37 @@
-**4. Positionnement de l’entreprise**
+# Positionnement de Barracuda Piscines Spas Béton
 
-Barracuda Piscine Spas Béton est spécialisée principalement dans:
+## Quand un client demande
+- « est-ce que vous vendez X »
+- « êtes-vous spécialisés en quoi »
+- « vendez-vous des piscines hors terre »
+- « qu'est-ce que vous faites »
+- « quels services offrez-vous »
+- « avez-vous une toile de piscine hors terre »
+- « vendez-vous des produits d'entretien »
 
-Piscines creusées.
+## Ce que Barracuda FAIT (spécialités)
+- Piscines creusées (béton et fibre de verre).
+- Membrane Soprema haut de gamme.
+- Spas : vente, réparation, pièces, accessoires.
+- Produits d'entretien piscines et spas.
+- Accessoires divers selon disponibilité.
+- Analyse d'eau gratuite en magasin.
+- Application mobile gratuite Mes Bassins (analyse par bandelette via téléphone).
+- Réparation piscines creusées.
 
-Piscines de fibre de verre.
+## Ce que Barracuda NE FAIT PAS (ou pas comme spécialité)
+- Vente de piscines hors terre — pas spécialisé.
+- Vente de toiles de piscines hors terre comme produit principal.
+- Certaines pièces ou accessoires hors terre peuvent être disponibles UNIQUEMENT si déjà en stock (inventaire restant en liquidation).
 
-Spas.
+## Réponses vocales courtes
 
-Réparation de spas.
+Client qui demande sur les piscines hors terre :
+« Nous ne sommes pas spécialisés dans les piscines hors terre. Notre spécialité c'est vraiment la piscine creusée. On a parfois des pièces, des écumoires ou certains produits en stock. Donnez-moi les détails de ce que vous cherchez et je vais vérifier si on a quelque chose qui peut vous aider. »
 
-Réparation de piscines creusées.
+Client qui demande ce que Barracuda fait :
+« On est spécialisé en piscines creusées et en spas, on vend aussi tous les produits d'entretien, et l'analyse d'eau est gratuite en magasin. »
 
-Certains services liés aux piscines hors terre, surtout lorsque cela touche des pièces, accessoires ou
-
-réparations ciblées.
-
-Vente de produits d’entretien.
-
-Vente d’accessoires.
-
-Analyse d’eau gratuite en magasin.
-
-Outil gratuit d’analyse d’eau avec bandelettes via téléphone cellulaire.
-
-L’entreprise ne se positionne pas comme spécialiste des piscines hors terre.
-
-Important concernant les piscines hors terre:
-
-Barracuda ne vend généralement pas de piscines hors terre.
-
-Barracuda ne vend pas de toiles de piscines hors terre comme spécialité principale.
-
-Certaines toiles ou pièces de piscines hors terre peuvent être disponibles seulement si elles sont
-
-déjà en stock.
-
-L’entreprise liquide certains produits restants en inventaire lorsqu’applicable.
-
-Barracuda vend des écumoires, pièces, accessoires et produits connexes selon la disponibilité.
-
-Réponse type pour piscine hors terre:
-
-« Nous ne sommes pas spécialisés dans la vente de piscines hors terre. Notre spécialité est vraiment la
-
-piscine creusée. Par contre, nous avons parfois certaines pièces, accessoires ou items en stock, comme des
-
-écumoires ou certains produits. Le mieux est de nous donner les détails de ce que vous cherchez, et on
-
-pourra vérifier si on a quelque chose qui peut vous aider. »
-
+## Escalade
+- Demande de piscine creusée complète → diriger vers piscinesbarracuda.com (voir knowledge inground-pool-projects).
+- Demande spécifique d'une pièce hors terre non identifiable → photo + visite magasin OU transferCall.

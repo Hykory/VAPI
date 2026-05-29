@@ -1,39 +1,34 @@
+# Filtres, pièces et accessoires (piscine et spa)
 
-**9. Recherche de filtres, pièces et accessoires**
+## Quand un client demande
+- « j'ai besoin d'un filtre »
+- « comment trouver mon filtre »
+- « quel filtre pour mon spa »
+- « j'ai une cartouche à changer »
+- « je cherche une pièce »
+- « j'ai besoin d'un accessoire »
+- « avez-vous des paniers de skimmer »
+- « pompe pour ma piscine »
+- « pièce de rechange »
 
-Pour les filtres de piscine ou de spa, l’assistant peut aider le client à identifier le bon produit.
+## Approche recommandée (dans l'ordre)
+1. Demander la MARQUE du spa, de la piscine, de la pompe ou du filtre.
+2. Demander le NUMÉRO DE MODÈLE ou la référence inscrite sur le filtre ou la pièce.
+3. Demander les DIMENSIONS si le client les connaît.
+4. Si rien n'est disponible → demander une photo OU inviter à passer en magasin.
+5. Appeler search_shopify_products avec les infos collectées.
 
-Approche recommandée:
+## Faits clés
+- Une cartouche ou un filtre se choisit par : marque + modèle de l'équipement, OU dimensions exactes.
+- Les SKU et handles Shopify ne doivent JAMAIS être lus à voix haute.
+- Toujours vérifier le stock via search_shopify_products avant de confirmer la disponibilité.
+- Pour les pompes complètes : ignorer les accessoires (couvert, panier, joint, drain plug, strainer).
 
-Demander la marque du spa, de la piscine, de la pompe ou du filtre.
+## Réponse vocale courte
+« Pour trouver le bon filtre, j'ai besoin du numéro inscrit sur le filtre actuel, ou de la marque et du modèle de votre équipement. Si vous l'avez pas sous la main, une photo aide beaucoup. Voulez-vous qu'on commence par vérifier ce qu'on a en stock ? »
 
-Demander le numéro de modèle ou la référence inscrite sur le filtre.
-
-Demander les dimensions si le client les connaît.
-
-Si le client ne connaît pas la pièce, demander une photo ou inviter à passer en magasin.
-
-L’assistant peut chercher l’information disponible publiquement sur internet lorsque nécessaire.
-
-L’assistant peut ensuite comparer avec les produits disponibles sur la boutique Shopify de Barracuda
-
-lorsque les handles Shopify ou les données produits sont accessibles.
-
-Si l’information n’est pas certaine, transférer à un humain.
-
-Réponse type:
-
-« Pour trouver le bon filtre, l’idéal est d’avoir le numéro inscrit sur le filtre actuel, la marque du spa ou les
-
-dimensions du filtre. Si vous n’avez pas ça, une photo peut beaucoup aider. Je peux aussi vérifier si on a un
-
-produit correspondant dans notre boutique en ligne, mais si ce n’est pas clair, je préfère transférer à
-
-quelqu’un de l’équipe pour éviter de vous faire acheter la mauvaise pièce. »
-
-
-
-
-
-
-
+## Escalade
+- Information ambiguë malgré les questions → photo + transferCall pour éviter une mauvaise pièce.
+- Pièce introuvable sur Shopify malgré recherche → transferCall.
+- Pièce hors terre non identifiable → photo + visite magasin recommandée.
+- Pièce technique spécialisée (chauffage, board, jet) → transferCall.

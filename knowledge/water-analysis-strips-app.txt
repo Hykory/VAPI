@@ -1,46 +1,33 @@
-**11. Application gratuite d’analyse d’eau par bandelettes**
+# Application gratuite d'analyse d'eau par bandelettes (Mes Bassins)
 
-Barracuda possède un outil gratuit d’analyse d’eau qui permet au client d’utiliser son téléphone cellulaire
+## Quand un client demande
+- « comment utiliser l'application »
+- « ça veut dire quoi mes résultats »
+- « j'ai testé mon eau avec la bandelette »
+- « est-ce que je peux tester l'eau avec mon téléphone »
+- « l'app me dit d'ajouter X, c'est correct »
+- « je comprends pas la recommandation »
+- « ma bandelette a changé de couleur »
+- « comment lire ma bandelette d'analyse d'eau »
+- « avez-vous une application pour l'eau »
 
-pour comparer les couleurs d’une bandelette d’analyse d’eau et recevoir des recommandations.
+## Faits clés
+- Barracuda offre un outil GRATUIT : application mobile qui lit les couleurs d'une bandelette via la caméra du téléphone et donne des recommandations.
+- Nom de l'application : Mes Bassins.
+- Fonctionnement : le client prend une photo de sa bandelette → l'application interprète automatiquement les couleurs → recommandations chimiques personnalisées.
+- L'application repose sur des métadonnées Shopify (bassins du client, historique des analyses).
+- L'analyse en magasin reste plus précise et est aussi gratuite — toujours la proposer si la situation est complexe ou douteuse.
 
-L’assistant doit être capable de:
+## Limites importantes (ne jamais franchir)
+- Ne JAMAIS inventer un dosage chimique précis sans données fiables.
+- Ne pas contredire une analyse humaine faite en magasin.
+- L'application n'est pas un substitut à une analyse professionnelle quand il y a un problème complexe.
+- Si les résultats semblent incohérents → recommander une analyse magasin plutôt que de pousser un produit.
 
-Expliquer que l’outil aide à interpréter les couleurs de la bandelette.
+## Réponse vocale courte
+« Notre application gratuite Mes Bassins permet de scanner votre bandelette avec votre téléphone et d'obtenir des recommandations. Si la lecture n'est pas claire ou que vous voulez une recommandation précise, passez en magasin avec un échantillon — l'analyse est gratuite. »
 
-Aider le client à comprendre les recommandations fournies.
-
-Guider le client s’il a de la difficulté à utiliser l’outil.
-
-Expliquer que les recommandations dépendent des résultats visibles et des paramètres d’eau.
-
-Recommander une analyse d’eau gratuite en magasin si les résultats semblent incohérents, si le
-
-client est incertain ou si la situation est complexe.
-
-Recommander des produits disponibles dans la boutique en ligne seulement lorsque les données
-
-produits sont accessibles ou confirmées.
-
-L’assistant ne doit pas:
-
-Inventer des dosages chimiques.
-
-Donner des recommandations chimiques précises sans données fiables.
-
-Contredire l’analyse humaine du magasin.
-
-Promettre que l’outil remplace une analyse professionnelle en magasin.
-
-Réponse type:
-
-« Notre outil gratuit d’analyse d’eau vous aide à comparer les couleurs de votre bandelette avec votre
-
-téléphone et à obtenir des recommandations. Si les résultats ne semblent pas clairs, ou si vous n’êtes pas
-
-certain de la lecture, vous pouvez aussi passer en magasin avec un échantillon d’eau. L’analyse en magasin
-
-est gratuite. »
-
-
-
+## Escalade
+- Résultats contradictoires ou très anciens → analyse magasin recommandée.
+- Client qui veut un calcul de dosage exact pour traitement spécifique → analyse magasin.
+- Doutes sur la chimie de l'eau (chlore qui ne tient pas, déséquilibre persistant) → analyse magasin OU transfert humain via transferCall si frustration.

@@ -1,24 +1,36 @@
-**7. Gestion des demandes de remplacement de toile ou rénovation**
+# Remplacement de toile, membrane ou rénovation (piscine creusée)
 
-Si le client demande un remplacement de toile de piscine creusée, l’assistant doit:
+## Quand un client demande
+- « je veux remplacer ma toile »
+- « ma toile est usée »
+- « refaire ma piscine creusée »
+- « changer ma membrane »
+- « combien coûte une toile »
+- « refaire les marches de ma piscine »
+- « ma toile est déchirée »
+- « ma piscine perd de l'eau, j'ai une fuite »
+- « refaire le fini de ma piscine »
 
-Qualifier le type de piscine.
+## Faits clés
+- Qualifier le type de piscine : creusée vinyle, creusée béton, ou autre.
+- Type de remplacement à clarifier : toile standard, marches recouvertes, forme spéciale, ou rénovation plus complète.
+- ⚠️ NE JAMAIS donner de prix exact par téléphone — analyse humaine requise.
+- Photos via le formulaire du site : vue d'ensemble + marches + état actuel.
 
-Demander si c’est une toile standard, des marches, une forme spéciale ou une rénovation plus
+## Questions de qualification
+- Toile standard ou avec marches recouvertes ?
+- Forme spéciale ou rectangulaire standard ?
+- Juste la toile, ou rénovation plus complète (structure, équipement, mécanique) ?
+- Avez-vous des photos de l'état actuel ?
+- Est-ce qu'il y a une fuite active ?
 
-complète.
+## Réponse vocale courte
+« Pour un remplacement de toile, on peut certainement regarder ça. Le mieux est d'envoyer une demande via piscinesbarracuda.com avec quelques photos de la piscine et des marches. L'équipe va analyser le dossier avant de revenir avec les prochaines étapes. »
 
-Inviter le client à envoyer une demande par le site web avec photos.
+## Mention possible — option haut de gamme
+Si le client cherche quelque chose de plus durable qu'une toile vinyle standard, mentionner la membrane Soprema (voir knowledge soprema-fiberglass-expertise) — environ 65 millièmes de pouce contre 22-27 millièmes pour une toile standard.
 
-Mentionner qu’une analyse humaine est nécessaire.
-
-Éviter de donner un prix exact.
-
-Réponse type:
-
-« Pour un remplacement de toile de piscine creusée, on peut certainement regarder ça. Le mieux est de
-
-nous envoyer une demande via notre site web avec quelques photos de la piscine, des marches et de l’état
-
-actuel. L’équipe pourra analyser le dossier correctement avant de vous revenir avec les prochaines étapes. »
-
+## Escalade
+- Demande de prix exact → formulaire web OU transferCall.
+- Question technique sur la procédure d'installation → transfert humain.
+- Toile crevée ou fuite active avec urgence → transfert humain via transferCall en priorité.

@@ -1,0 +1,53 @@
+# Marques distribuées et marques connues par Barracuda
+
+## Quand un client demande
+- « avez-vous des spas Bullfrog »
+- « est-ce que vous vendez Hydropool »
+- « avez-vous des pompes Helios »
+- « quelles marques de spa avez-vous »
+- « est-ce que vous distribuez X »
+- « avez-vous des produits Bayrol »
+- « est-ce que la marque Y est compatible »
+
+## Marques CONFIRMÉES dans le catalogue Barracuda
+
+### Spas (haut de gamme)
+- **Bullfrog** — spas modulaires avec jets interchangeables (JetPak).
+- **Hydropool** — spas auto-nettoyants, marque pionnière canadienne.
+- **Sundance** — spas haut de gamme américains.
+
+### Équipement piscine
+- **Hélios** — pompes de piscine (mentionné explicitement dans les conversations clients).
+
+### Membranes / piscines creusées
+- **Soprema** — membrane haut de gamme exclusive (~65 millièmes, voir knowledge soprema-fiberglass-expertise).
+
+### Chimie / produits d'entretien
+- **Bayrol** — produits chimiques pour piscine et spa.
+- **Bioguard** — produits chimiques.
+- **AlgaComplete** — algicide breveté (recommandation maison Barracuda).
+- **ClearStix** — agent clarifiant pour filtres à sable.
+- **Polishing** — clarifiant liquide pour filtres à cartouche.
+
+## ⚠️ À CONFIRMER PAR L'ÉQUIPE BARRACUDA
+- **Hayward** — équipement piscine, très répandu au QC. Distribué ou pas ?
+- **Pentair** — équipement piscine, idem.
+- **Jacuzzi**, **Coast Spas**, **Beachcomber** — spas, à confirmer.
+- **Marques de filtres cartouche tierces** (Unicel, Pleatco) — souvent compatibles avec n'importe quel spa.
+
+## Faits clés
+- Si un client demande une marque NON listée ci-dessus → ne PAS affirmer qu'on l'a OU qu'on l'a pas. Toujours vérifier via search_shopify_products avec le nom de la marque.
+- Barracuda peut avoir des pièces compatibles MÊME pour des marques qu'elle ne distribue pas en neuf.
+
+## Réponse vocale courte
+
+Client qui demande une marque CONFIRMÉE :
+« Oui, on distribue [marque]. Voulez-vous que je vérifie ce qu'on a en stock présentement ? »
+
+Client qui demande une marque NON LISTÉE :
+« Laissez-moi vérifier dans notre boutique. » → puis appeler search_shopify_products.
+
+## Escalade
+- Demande spécifique sur une marque pour projet de piscine creusée → transferCall.
+- Demande de spa complet (achat neuf) → orienter vers visite magasin OU transferCall.
+- Compatibilité technique entre marques différentes → transferCall.

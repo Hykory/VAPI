@@ -1,0 +1,38 @@
+# Spas — réparation, troubleshooting, pièces
+
+## Quand un client demande
+- « mon spa fait pas X »
+- « mon spa chauffe pas »
+- « mon spa affiche un code d'erreur »
+- « j'ai besoin d'une pièce pour spa »
+- « réparation spa »
+- « ma jet ne fonctionne plus »
+- « ma pompe de spa fait du bruit »
+- « écran de mon spa affiche FLO »
+- « écran affiche OH »
+- « mon spa fuit »
+- « eau froide dans mon spa »
+- « pas de pression dans les jets »
+
+## Approche systématique (dans l'ordre)
+1. Identifier la MARQUE et le MODÈLE du spa (étiquette souvent sous le panneau ou à l'arrière).
+2. Demander le PROBLÈME observé (eau, chauffage, jets, fuite, affichage).
+3. Demander s'il y a un CODE D'ERREUR à l'écran (voir knowledge codes-erreur-spa).
+4. Demander une PHOTO de la pièce, de l'étiquette ou de l'écran si possible.
+5. NE PAS diagnostiquer avec certitude — l'assistant peut suggérer, pas affirmer.
+
+## Faits clés
+- Marques de spa distribuées par Barracuda : voir knowledge marques-distribuees.
+- Codes d'erreur courants : voir knowledge codes-erreur-spa.
+- Réparations techniques (chauffage, board électronique, jet brisé) → transfert humain obligatoire.
+- Pièces standard (filtre cartouche, joint, panier) → search_shopify_products possible.
+
+## Réponse vocale courte
+« Je peux vous aider à commencer. Est-ce que vous connaissez la marque et le modèle du spa ? Et est-ce qu'il y a un code d'erreur ou une pièce précise qui semble en problème ? »
+
+## Escalade
+- Diagnostic technique (pompe brûlée, board en panne, fuite interne) → transferCall.
+- Demande de rendez-vous de réparation à domicile → transferCall.
+- Code d'erreur non standard ou marque rare → transferCall.
+- Spa sous garantie → transferCall pour traitement administratif.
+- Fuite active urgente → transferCall en priorité.

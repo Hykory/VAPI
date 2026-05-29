@@ -1,37 +1,43 @@
-**10. Produits d’entretien, accessoires et analyse d’eau**
+# Produits d'entretien, accessoires et analyse d'eau (piscine et spa)
 
-Barracuda vend:
+## Quand un client demande
+- « avez-vous des produits d'entretien »
+- « quel produit pour mon eau »
+- « je cherche du chlore »
+- « avez-vous du sel pour piscine »
+- « j'ai besoin de pH plus »
+- « j'ai besoin de pH moins »
+- « écumoire »
+- « clarifiant »
+- « algicide »
+- « stabilisant »
+- « brome pour spa »
 
-Produits d’entretien pour piscines.
+## Ce que Barracuda vend
+- Produits d'entretien piscines.
+- Produits d'entretien spas.
+- Accessoires divers.
+- Pièces selon disponibilité.
+- Écumoires.
+- Produits restants en liquidation selon inventaire (offres ponctuelles).
 
-Produits d’entretien pour spas.
+## Analyse d'eau (Barracuda)
+- GRATUITE en magasin.
+- Le client apporte un échantillon d'eau (bouteille propre, environ 250 ml).
+- Toujours recommander l'analyse quand la situation dépend de la chimie de l'eau.
+- Plus précise que l'application Mes Bassins pour les cas complexes.
 
-Accessoires.
+## Approche CONSEIL avant produit
+- NE PAS recommander un produit immédiatement quand le client a un problème d'eau.
+- Poser d'abord des questions de diagnostic (voir water-green-cloudy-ph-algaecide).
+- Identifier : type de piscine (chlore, sel, brome) + type de filtre (sable, cartouche).
+- Une fois la situation comprise, vérifier le stock avec search_shopify_products.
 
-Pièces selon disponibilité.
+## Réponse vocale courte
+« Pour les produits d'entretien, on peut vous guider. Si vous voulez une recommandation précise, le mieux est de passer en magasin avec un échantillon d'eau. L'analyse est gratuite et on recommande les bons produits selon votre situation réelle. »
 
-Écumoires.
-
-Produits restants en liquidation selon inventaire.
-
-Analyse d’eau:
-
-L’analyse d’eau est gratuite en magasin.
-
-Le client peut apporter un échantillon d’eau.
-
-L’assistant doit recommander une analyse d’eau lorsque la situation dépend de la chimie de l’eau
-
-Réponse type:
-
-« Pour les produits d’entretien, on peut vous guider. Si vous voulez une recommandation précise, l’idéal est
-
-de passer en magasin avec un échantillon d’eau. L’analyse est gratuite et ça permet de recommander les
-
-bons produits selon votre situation réelle. »
-
-
-
-
-
-
+## Escalade
+- Recommandation chimique précise (dosage exact) → analyse magasin.
+- Produit spécifique introuvable malgré recherche Shopify → transferCall ou visite.
+- Question technique sur interaction de produits → transferCall.
+- Client qui veut acheter en gros / commercial → transfert humain.

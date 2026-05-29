@@ -1,0 +1,47 @@
+# Ouverture de piscine au printemps (procédure et produits)
+
+## Quand un client demande
+- « comment ouvrir ma piscine »
+- « démarrer ma piscine ce printemps »
+- « j'enlève la toile d'hivernage »
+- « ma piscine est verte au démarrage »
+- « quoi faire à l'ouverture de la piscine »
+- « démarrage de saison piscine »
+- « quand ouvrir ma piscine »
+- « produits pour ouverture de piscine »
+
+## Période typique au Québec
+- Région Gatineau / Outaouais : généralement entre fin avril et mi-mai.
+- Attendre que la température ambiante soit stable au-dessus de 10°C.
+- Mieux vaut ouvrir tôt qu'attendre — laisser l'eau stagner sous une toile au chaud favorise les algues.
+
+## Procédure standard (vue d'ensemble)
+1. Retirer la toile d'hivernage, la nettoyer et la sécher avant rangement.
+2. Compléter le niveau d'eau si vidée partiellement à l'automne.
+3. Remettre en place les bouchons / accessoires retirés à la fermeture.
+4. Démarrer la filtration et faire tourner 24-48h.
+5. Faire un TRAITEMENT À CHOC pour rattraper le chlore.
+6. Ajuster le pH (cible 7,2 à 7,8).
+7. Ajouter un algicide ~1h après le choc (AlgaComplete recommandé).
+8. Apporter un échantillon d'eau en magasin pour analyse complète (gratuite).
+
+## Produits couramment utilisés à l'ouverture
+- Chlore choc (granules ou liquide).
+- Stabilisant (cyanurique) si à plat.
+- Algicide AlgaComplete.
+- Clarifiant selon type de filtre (ClearStix pour sable, Polishing pour cartouche).
+- pH plus / pH moins selon analyse.
+
+## ⚠️ À CONFIRMER PAR L'ÉQUIPE BARRACUDA
+- Y a-t-il un « kit d'ouverture » Barracuda spécifique vendu en bundle ?
+- Est-ce que Barracuda offre un service d'ouverture à domicile ? Si oui, à quel prix indicatif ?
+- Période de l'année où le service à domicile est saturé / liste d'attente ?
+
+## Réponse vocale courte
+« Pour ouvrir votre piscine, on commence par enlever la toile, remettre la filtration en route, et faire un traitement à choc. Le mieux, c'est de passer en magasin avec un échantillon d'eau quelques jours après le démarrage. L'analyse est gratuite et on vous oriente vers les bons produits. »
+
+## Escalade
+- Demande de service d'ouverture à domicile → transferCall.
+- Piscine très verte à l'ouverture qui ne répond pas au traitement standard → analyse magasin obligatoire OU transferCall.
+- Démarrage d'équipement qui ne fonctionne pas (pompe, filtre) → transferCall.
+- Toile d'hivernage déchirée ou perdue → orienter vers visite magasin pour évaluation.

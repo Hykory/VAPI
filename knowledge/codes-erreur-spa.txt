@@ -1,0 +1,65 @@
+# Codes d'erreur courants sur spas (interprétation et action)
+
+## Quand un client demande
+- « mon spa affiche FLO »
+- « code d'erreur OH »
+- « il y a marqué FL sur l'écran »
+- « mon spa affiche HL »
+- « code SNA / SNB »
+- « écran affiche ICE »
+- « code DR / DRY »
+- « mon spa clignote »
+- « erreur sur le panneau de mon spa »
+
+## Codes communs (contrôleurs type Balboa, courants sur plusieurs marques)
+
+### FLO / FL / FL1 / FL2 — Problème de flow d'eau
+- **Causes probables** : filtre encrassé, niveau d'eau trop bas, panier de skimmer plein, capteur de pression défaillant.
+- **Premier réflexe** : vérifier le niveau d'eau, nettoyer le filtre cartouche, vider le panier.
+- **Si persiste** → transferCall (capteur ou pompe).
+
+### OH / HOT — Surchauffe
+- **Causes probables** : eau trop chaude, capteur de température défaillant, mauvaise circulation.
+- **Premier réflexe** : éteindre le spa, attendre que l'eau refroidisse, vérifier la circulation.
+- **Si persiste** → transferCall (capteur de température ou board).
+
+### HL / High Limit — Limite haute déclenchée
+- Capteur de température de sécurité activé.
+- → transferCall (réinitialisation technique nécessaire).
+
+### SNA / SNB — Capteur déconnecté ou défaillant
+- Un des deux capteurs de température n'est pas lu correctement.
+- → transferCall (remplacement de capteur).
+
+### ICE / COL — Protection contre le gel / eau trop froide
+- Spa détecte une température dangereusement basse.
+- **Premier réflexe** : vérifier que le spa est branché, que le chauffage fonctionne.
+- → transferCall si persiste.
+
+### DR / DRY — Manque d'eau dans le chauffage
+- Le chauffage ne détecte pas d'eau, possiblement à sec.
+- **Premier réflexe** : vérifier le niveau d'eau, faire couler la pompe manuellement.
+- → transferCall (risque d'endommager le chauffage si pas réglé vite).
+
+## ⚠️ À CONFIRMER PAR L'ÉQUIPE BARRACUDA
+- Codes spécifiques aux marques Bullfrog, Hydropool, Sundance (peuvent avoir des codes propriétaires en plus des codes Balboa standard).
+- Procédure de réinitialisation que le client peut faire SEUL avant de transférer.
+- Y a-t-il un manuel d'utilisateur Barracuda standard à pointer ?
+
+## Faits clés
+- La majorité des spas modernes utilisent un contrôleur Balboa — les codes ci-dessus sont communs.
+- En cas de doute, NE PAS faire deviner au client une réparation — toujours transférer.
+- Une photo de l'écran aide énormément l'équipe technique.
+
+## Réponse vocale courte
+Code reconnu (ex: FLO) :
+« Le code FLO indique souvent un problème de circulation d'eau. Premier réflexe : vérifier le niveau d'eau et nettoyer le filtre. Si le code revient après ça, je vous transfère à l'équipe. »
+
+Code non reconnu :
+« Je ne suis pas certain de ce code précisément. Je vous transfère à un membre de l'équipe qui pourra mieux vous aider. » → appeler transferCall.
+
+## Escalade
+- Code persistant malgré les premiers réflexes → transferCall.
+- Code non reconnu ou marque rare → transferCall.
+- Plusieurs codes affichés en alternance → transferCall.
+- Spa qui ne s'allume pas du tout / écran noir → transferCall.

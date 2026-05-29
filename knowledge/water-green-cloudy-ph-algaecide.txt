@@ -1,24 +1,40 @@
-Bonjour,
+# Eau verte, eau trouble, algues, pH déséquilibré (piscine)
 
-Si vous venez de partir votre piscine et que l’eau est embrouillée ou verte, la première étape est de vérifier le pH.
+## Quand un client demande
+- « ma piscine est verte »
+- « mon eau est trouble »
+- « eau embrouillée »
+- « j'ai des algues »
+- « mon pH est trop haut »
+- « comment faire un traitement choc »
+- « comment shocker ma piscine »
+- « l'eau est verdâtre »
+- « je viens de partir ma piscine, l'eau n'est pas claire »
+- « pourquoi mon chlore tient pas »
 
-La raison est simple : le chlore perd beaucoup d’efficacité lorsque le pH est trop élevé. Si votre pH est élevé, il faut d’abord le réduire vers une zone optimale, soit environ 7.2 à 7.8.
+## Faits clés
+- pH cible : 7,2 à 7,8.
+- Si pH > 7,8 : le chlore perd beaucoup d'efficacité — toujours ajuster le pH AVANT le choc.
+- Si pH < 7,2 : pas dramatique, le chlore est plus efficace mais s'épuise plus vite.
+- Algicide : prévient les algues quand le chlore est bas (ex: après une journée de soleil).
+- Algicide recommandé Barracuda : AlgaComplete (breveté, économique, efficace).
+- Algues mortes en suspension après traitement = eau encore embrouillée, c'est normal pendant 24-48h.
 
-Si le pH est plus bas, ce n’est pas dramatique : le chlore sera même plus efficace, mais il aura moins de longévité. Il travaillera plus rapidement, mais disparaîtra aussi plus vite après le traitement à choc.
+## Selon le type de filtre
+- Filtre à sable → ClearStix (agit dans le sable, aide à capter les particules fines).
+- Filtre à cartouche → Polishing (clarifiant liquide, regroupe les micro-particules pour que la cartouche les capte).
 
-C’est pourquoi nous recommandons aussi d’utiliser un algicide. L’algicide aide à prévenir la formation d’algues lorsque l’eau manque de chlore, par exemple après une journée de soleil où le chlore s’est évaporé.
+## Procédure standard en 3 étapes
+1. Vérifier le pH et l'ajuster s'il est trop haut.
+2. Faire le traitement à choc.
+3. Environ 1 heure plus tard, ajouter l'algicide.
+4. Si l'eau reste trouble après 24-48h, ajouter le clarifiant adapté au type de filtre.
 
-Pour résumer :
+## Réponse vocale courte
+« Premier réflexe : on vérifie le pH. S'il est trop haut, votre chlore travaille à moitié. Vous l'avez testé récemment ? »
 
-1. Vérifiez que le pH n’est pas trop élevé.
-2. Faites votre traitement à choc.
-3. Environ une heure plus tard, ajoutez un algicide.
-
-Nous recommandons l’algicide AlgaComplete breveté, qui est très économique et très efficace. Pour en apprendre plus, venez nous visiter en boutique.
-
-Il faut aussi comprendre que les algues mortes peuvent rester en suspension dans l’eau et la rendre embrouillée.
-
-Pour une piscine avec filtre à sable, nous recommandons le ClearStix. Il agit directement dans le sable et aide le filtre à capter les particules fines qui pourraient autrement retourner dans la piscine.
-
-Pour une piscine avec filtre à cartouche, nous recommandons plutôt un clarifiant liquide comme le Polishing. Celui-ci aide à regrouper les micro-particules afin que la cartouche puisse mieux les capter.
-
+## Escalade
+- Eau encore verte 48h après traitement complet → analyse d'eau gratuite en magasin obligatoire.
+- Couleur inhabituelle (rose, brun, noir, fluo) → analyse magasin, pourrait être métaux, taches ou contamination.
+- Client qui veut un dosage exact de chlore choc → recommander apporter un échantillon d'eau en magasin avant tout calcul.
+- Frustration persistante après plusieurs traitements ratés → transfert humain via transferCall.

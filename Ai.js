@@ -89,6 +89,24 @@ const REPORT_EMAIL_FROM = process.env.REPORT_EMAIL_FROM || "Barracuda Coach <onb
 const ANALYSIS_SECRET = process.env.ANALYSIS_SECRET || "change-me"; // mot de passe pour déclencher /weekly-analysis manuellement
 const ANALYSIS_TIMEZONE = process.env.ANALYSIS_TIMEZONE || "America/Toronto"; // fuseau horaire pour le cron du dimanche
 
+// Boîte vocale (voicemail Twilio → courriel sur le compte Resend info@)
+// IMPORTANT : compte Resend SÉPARÉ de celui du coach hebdo. Le free tier Resend
+// ne permet d'envoyer QUE vers l'email d'inscription du compte tant qu'aucun
+// domaine n'est vérifié. Le compte info@ peut donc écrire à info@, l'ancien
+// compte (RESEND_API_KEY) continue d'écrire à nathan_leonard05@outlook.com pour le coach.
+const RESEND_API_KEY_VOICEMAIL = process.env.RESEND_API_KEY_VOICEMAIL; // clé du compte Resend info@
+const VOICEMAIL_EMAIL_TO = process.env.VOICEMAIL_EMAIL_TO || "info@piscinesbarracuda.com";
+const VOICEMAIL_EMAIL_FROM = process.env.VOICEMAIL_EMAIL_FROM || "Barracuda Boite Vocale <onboarding@resend.dev>";
+// Creds Twilio OPTIONNELS : seulement pour télécharger l'audio et le joindre au courriel.
+// Absents → le courriel contient quand même le lien d'écoute (dégradation propre).
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+// URL publique de ce serveur (pour les callbacks Twilio). Défaut = l'URL prod Railway connue.
+const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "https://barracuda-ai-agent-production-806d.up.railway.app").replace(/\/+$/, "");
+// Message d'accueil joué quand personne ne répond (modifiable via env sans toucher au code).
+const VOICEMAIL_GREETING = process.env.VOICEMAIL_GREETING ||
+  "Bonjour, vous avez bien rejoint Barracuda Piscines et Spas. Nous ne sommes pas en mesure de prendre votre appel pour le moment. Laissez-nous votre nom, votre numero de telephone et votre message apres le bip sonore, et nous vous rappellerons des que possible. Merci!";
+
 // VAPI_ASSISTANTS_MAP : table de correspondance UUID → nom lisible
 // Pourquoi ? Quand un appel se termine, VAPI nous dit « assistantId = abc123... »
 // mais ça ne veut rien dire. On veut savoir si c'était Accueil, FR ou EN.
@@ -1704,6 +1722,176 @@ setInterval(async () => {
 
 
 // ╭───────────────────────────────────────────────────────────────────────╮
+// │  13bis. BOÎTE VOCALE — Voicemail Twilio quand le poste 104 ne répond pas │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// CONTEXTE :
+//   Le numéro de transfert +1 819 617 1695 fait sonner le Yealink T53 (poste
+//   SIP 104) directement via Twilio. Twilio N'A PAS de boîte vocale native.
+//   On la fabrique donc ici : si le T53 ne répond pas dans le délai, Twilio
+//   joue un message d'accueil, enregistre le message du client, puis on
+//   l'envoie par courriel à info@piscinesbarracuda.com.
+//
+// CONFIG TWILIO REQUISE (dans le TwiML Bin du +18196171695) :
+//   <Response>
+//     <Dial timeout="20"
+//           action="https://barracuda-ai-agent-production-806d.up.railway.app/voicemail/after-dial"
+//           method="POST">
+//       <Sip>sip:104@barracuda.sip.twilio.com</Sip>
+//     </Dial>
+//   </Response>
+//   → timeout="20" = 20 s de sonnerie avant la bascule voicemail.
+//   → action = appelé par Twilio à la FIN du Dial (répondu OU non).
+
+// Helper : envoie le message vocal par courriel via le compte Resend info@.
+// Pièce jointe .mp3 SI les creds Twilio sont présents, sinon lien d'écoute seul.
+async function sendVoicemailEmail({ recordingUrl, durationSec, from, callSid }) {
+  if (!RESEND_API_KEY_VOICEMAIL) throw new Error("RESEND_API_KEY_VOICEMAIL missing");
+
+  const mp3Url = recordingUrl.endsWith(".mp3") ? recordingUrl : `${recordingUrl}.mp3`;
+  const mins = Math.floor(durationSec / 60);
+  const secs = durationSec % 60;
+  const durHuman = mins > 0 ? `${mins} min ${secs} s` : `${secs} s`;
+  const nowHuman = new Date().toLocaleString("fr-CA", { timeZone: ANALYSIS_TIMEZONE });
+
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#222">
+      <h2 style="color:#0a6ebd">📞 Nouveau message vocal</h2>
+      <p>
+        <strong>De :</strong> ${escapeXml(from)}<br>
+        <strong>Durée :</strong> ${escapeXml(durHuman)}<br>
+        <strong>Reçu le :</strong> ${escapeXml(nowHuman)}
+      </p>
+      <p>
+        <a href="${mp3Url}" style="display:inline-block;background:#0a6ebd;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">
+          ▶️ Écouter le message
+        </a>
+      </p>
+      <p style="color:#888;font-size:12px;margin-top:24px">
+        Barracuda Piscines &amp; Spas — message laissé sur la ligne lorsque personne n'a répondu au poste.
+      </p>
+    </div>`;
+
+  // Pièce jointe optionnelle (nécessite les creds Twilio pour télécharger le média protégé)
+  let attachments;
+  if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
+    try {
+      const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString("base64");
+      const audioResp = await fetch(mp3Url, { headers: { Authorization: `Basic ${auth}` } });
+      if (audioResp.ok) {
+        const buf = Buffer.from(await audioResp.arrayBuffer());
+        attachments = [{
+          filename: `message-vocal-${callSid || "barracuda"}.mp3`,
+          content: buf.toString("base64"),
+        }];
+      } else {
+        console.warn(`[voicemail] téléchargement audio HTTP ${audioResp.status} — courriel avec lien seulement`);
+      }
+    } catch (e) {
+      console.warn("[voicemail] téléchargement audio échoué — courriel avec lien seulement:", e.message);
+    }
+  }
+
+  const payload = {
+    from: VOICEMAIL_EMAIL_FROM,
+    to: [VOICEMAIL_EMAIL_TO],
+    subject: `📞 Message vocal — ${from} (${durHuman})`,
+    html,
+  };
+  if (attachments) payload.attachments = attachments;
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY_VOICEMAIL}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Resend (voicemail) HTTP ${response.status}: ${text}`);
+  }
+  return await response.json();
+}
+
+// ① Fallback : Twilio appelle cette route à la fin du <Dial> vers le poste 104.
+app.post("/voicemail/after-dial", (req, res) => {
+  const dialStatus = req.body?.DialCallStatus;            // completed | no-answer | busy | failed | canceled
+  const from = req.body?.From || req.body?.Caller || "inconnu";
+  res.set("Content-Type", "text/xml; charset=utf-8");
+
+  // Quelqu'un a répondu (et l'appel est terminé) → rien à enregistrer.
+  if (dialStatus === "completed") {
+    return res.send(`<?xml version="1.0" encoding="UTF-8"?>\n<Response><Hangup/></Response>`);
+  }
+
+  // Personne n'a répondu → on enregistre un message.
+  console.log(`[voicemail] no-answer (status=${dialStatus}) from=${from} → enregistrement`);
+  logEvent("voicemail_triggered", { dial_status: dialStatus });
+
+  const cbUrl = `${PUBLIC_BASE_URL}/voicemail/recording-ready?from=${encodeURIComponent(from)}`;
+  const doneUrl = `${PUBLIC_BASE_URL}/voicemail/recording-done`;
+
+  return res.send(
+`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say language="fr-CA" voice="Polly.Chantal">${escapeXml(VOICEMAIL_GREETING)}</Say>
+  <Record maxLength="120" timeout="5" playBeep="true" trim="trim-silence" finishOnKey="#"
+          action="${escapeXml(doneUrl)}" method="POST"
+          recordingStatusCallback="${escapeXml(cbUrl)}" recordingStatusCallbackMethod="POST"
+          recordingStatusCallbackEvent="completed"/>
+  <Say language="fr-CA" voice="Polly.Chantal">Nous n'avons recu aucun message. Au revoir!</Say>
+</Response>`
+  );
+});
+
+// ② Fin de l'enregistrement (client a raccroché, appuyé # ou atteint 120 s).
+app.post("/voicemail/recording-done", (_req, res) => {
+  res.set("Content-Type", "text/xml; charset=utf-8");
+  return res.send(
+`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say language="fr-CA" voice="Polly.Chantal">Merci, votre message a bien ete enregistre. Au revoir!</Say>
+  <Hangup/>
+</Response>`
+  );
+});
+
+// ③ Twilio nous prévient que le fichier audio est prêt → on envoie le courriel.
+//    (Callback asynchrone : Twilio n'attend pas la fin de l'envoi.)
+app.post("/voicemail/recording-ready", async (req, res) => {
+  res.status(204).end();   // on accuse réception immédiatement
+
+  try {
+    const recordingUrl = req.body?.RecordingUrl;
+    const durationSec = parseInt(req.body?.RecordingDuration, 10) || 0;
+    const from = req.query?.from || "inconnu";
+    const callSid = req.body?.CallSid || "";
+
+    if (!recordingUrl) {
+      console.warn("[voicemail] recording-ready sans RecordingUrl — ignoré");
+      return;
+    }
+    // Message quasi vide (raccroché tout de suite) → on n'envoie rien.
+    if (durationSec < 2) {
+      console.log(`[voicemail] message trop court (${durationSec}s) from=${from} — ignoré`);
+      logEvent("voicemail_skipped_short", { duration_sec: durationSec });
+      return;
+    }
+
+    await sendVoicemailEmail({ recordingUrl, durationSec, from, callSid });
+    console.log(`[voicemail] courriel envoyé à ${VOICEMAIL_EMAIL_TO} (durée ${durationSec}s, from ${from})`);
+    logEvent("voicemail_emailed", { duration_sec: durationSec });
+  } catch (err) {
+    console.error("[voicemail] échec envoi courriel:", err);
+    logEvent("voicemail_error", { error: err.message });
+  }
+});
+
+
+// ╭───────────────────────────────────────────────────────────────────────╮
 // │  14. HEALTH CHECK & ENDPOINTS DE DIAGNOSTIC                            │
 // ╰───────────────────────────────────────────────────────────────────────╯
 //
@@ -1718,6 +1906,9 @@ app.get("/", (_req, res) => {
       "POST /search_shopify_products",
       "POST /search_shopify_orders",
       "POST /sms/incoming",
+      "POST /voicemail/after-dial",
+      "POST /voicemail/recording-done",
+      "POST /voicemail/recording-ready",
       "POST /weekly-analysis",
       "GET /diagnose-shopify",
       "GET /diagnose-sms",
@@ -1727,6 +1918,8 @@ app.get("/", (_req, res) => {
     shopify_token_configured: !!SHOPIFY_TOKEN,
     vapi_configured: !!(VAPI_PRIVATE_KEY && VAPI_ASSISTANT_ID),
     coach_configured: !!(ANTHROPIC_API_KEY && RESEND_API_KEY && REPORT_EMAIL_TO),
+    voicemail_configured: !!RESEND_API_KEY_VOICEMAIL,
+    voicemail_attachment_enabled: !!(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN),
     assistants_map_loaded: Object.keys(VAPI_ASSISTANTS_MAP).length,   // 3 si bien configuré
     sms_sessions_active: smsSessions.size,
     events_buffered: EVENTS.length,

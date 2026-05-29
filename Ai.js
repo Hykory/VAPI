@@ -87,7 +87,9 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;            // clé Resend (en
 const REPORT_EMAIL_TO = process.env.REPORT_EMAIL_TO;          // adresse qui reçoit le rapport hebdo
 const REPORT_EMAIL_FROM = process.env.REPORT_EMAIL_FROM || "Barracuda Coach <onboarding@resend.dev>"; // expéditeur du rapport
 const ANALYSIS_SECRET = process.env.ANALYSIS_SECRET || "change-me"; // mot de passe pour déclencher /weekly-analysis manuellement
-const ANALYSIS_TIMEZONE = process.env.ANALYSIS_TIMEZONE || "America/Toronto"; // fuseau horaire pour le cron du dimanche
+// .trim() : une variable Railway avec un espace parasite (« America/Toronto ») faisait
+// planter toLocaleString({ timeZone }) — ça cassait l'envoi des courriels voicemail ET coach.
+const ANALYSIS_TIMEZONE = (process.env.ANALYSIS_TIMEZONE || "America/Toronto").trim(); // fuseau horaire pour le cron du dimanche
 
 // Boîte vocale (voicemail Twilio → courriel sur le compte Resend info@)
 // IMPORTANT : compte Resend SÉPARÉ de celui du coach hebdo. Le free tier Resend

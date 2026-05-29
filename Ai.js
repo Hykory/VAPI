@@ -1816,6 +1816,58 @@ async function sendVoicemailEmail({ recordingUrl, durationSec, from, callSid }) 
   return await response.json();
 }
 
+// Anti-doublon : un même enregistrement peut déclencher À LA FOIS l'action
+// (<Record action=...>) ET le recordingStatusCallback. On n'envoie qu'UN seul
+// courriel par RecordingSid. En cas d'échec, on retire de la liste pour laisser
+// l'autre callback réessayer.
+const voicemailEmailed = new Set();
+
+// Traite un enregistrement reçu de Twilio, depuis n'importe lequel des deux
+// callbacks. `source` = "action" | "status-callback" (sert au diagnostic).
+async function processVoicemailRecording(req, source) {
+  const recordingUrl = req.body?.RecordingUrl;
+  const durationSec = parseInt(req.body?.RecordingDuration, 10) || 0;
+  const recordingStatus = req.body?.RecordingStatus || "";
+  const from = req.query?.from || req.body?.From || "inconnu";
+  const callSid = req.body?.CallSid || "";
+  const recordingSid = req.body?.RecordingSid || callSid || "unknown";
+
+  // DIAGNOSTIC : on logge CHAQUE appel de Twilio, avec ce qu'il nous envoie.
+  // C'est ça qui nous dira lequel des deux callbacks Twilio déclenche réellement.
+  logEvent("voicemail_callback_hit", {
+    source,
+    has_recording_url: !!recordingUrl,
+    duration_sec: durationSec,
+    recording_status: recordingStatus,
+  });
+  console.log(`[voicemail] HIT source=${source} url=${!!recordingUrl} dur=${durationSec}s status=${recordingStatus} from=${from}`);
+
+  if (!recordingUrl) {
+    console.warn(`[voicemail] ${source}: pas de RecordingUrl — ignoré`);
+    return;
+  }
+  if (durationSec < 2) {
+    console.log(`[voicemail] ${source}: message trop court (${durationSec}s) — ignoré`);
+    logEvent("voicemail_skipped_short", { duration_sec: durationSec, source });
+    return;
+  }
+  if (voicemailEmailed.has(recordingSid)) {
+    console.log(`[voicemail] ${source}: déjà envoyé pour ${recordingSid} — doublon ignoré`);
+    return;
+  }
+  voicemailEmailed.add(recordingSid);
+
+  try {
+    await sendVoicemailEmail({ recordingUrl, durationSec, from, callSid });
+    console.log(`[voicemail] courriel envoyé à ${VOICEMAIL_EMAIL_TO} (source=${source}, ${durationSec}s, from ${from})`);
+    logEvent("voicemail_emailed", { duration_sec: durationSec, source });
+  } catch (err) {
+    voicemailEmailed.delete(recordingSid);   // échec → l'autre callback pourra réessayer
+    console.error(`[voicemail] ${source}: échec envoi courriel:`, err);
+    logEvent("voicemail_error", { error: err.message, source });
+  }
+}
+
 // ① Fallback : Twilio appelle cette route à la fin du <Dial> vers le poste 104.
 app.post("/voicemail/after-dial", (req, res) => {
   const dialStatus = req.body?.DialCallStatus;            // completed | no-answer | busy | failed | canceled
@@ -1832,7 +1884,7 @@ app.post("/voicemail/after-dial", (req, res) => {
   logEvent("voicemail_triggered", { dial_status: dialStatus });
 
   const cbUrl = `${PUBLIC_BASE_URL}/voicemail/recording-ready?from=${encodeURIComponent(from)}`;
-  const doneUrl = `${PUBLIC_BASE_URL}/voicemail/recording-done`;
+  const doneUrl = `${PUBLIC_BASE_URL}/voicemail/recording-done?from=${encodeURIComponent(from)}`;
 
   return res.send(
 `<?xml version="1.0" encoding="UTF-8"?>
@@ -1847,47 +1899,27 @@ app.post("/voicemail/after-dial", (req, res) => {
   );
 });
 
-// ② Fin de l'enregistrement (client a raccroché, appuyé # ou atteint 120 s).
-app.post("/voicemail/recording-done", (_req, res) => {
+// ② Action du <Record> : appelée si l'enregistrement se termine par # (finishOnKey),
+//    par la limite de 120 s, ou par 5 s de silence. L'appel est encore actif ici,
+//    donc on remercie le client À VOIX, PUIS on traite l'envoi (filet de sécurité).
+app.post("/voicemail/recording-done", (req, res) => {
   res.set("Content-Type", "text/xml; charset=utf-8");
-  return res.send(
+  res.send(
 `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say language="fr-CA" voice="Polly.Chantal">Merci, votre message a bien ete enregistre. Au revoir!</Say>
   <Hangup/>
 </Response>`
   );
+  // Après avoir répondu à Twilio, on tente l'envoi (ne pas bloquer la réponse TwiML).
+  processVoicemailRecording(req, "action").catch(e => console.error("[voicemail] action:", e));
 });
 
-// ③ Twilio nous prévient que le fichier audio est prêt → on envoie le courriel.
-//    (Callback asynchrone : Twilio n'attend pas la fin de l'envoi.)
-app.post("/voicemail/recording-ready", async (req, res) => {
+// ③ recordingStatusCallback asynchrone : le chemin FIABLE quand le client RACCROCHE
+//    (l'action ② n'est alors pas appelée). Twilio nous prévient que l'audio est prêt.
+app.post("/voicemail/recording-ready", (req, res) => {
   res.status(204).end();   // on accuse réception immédiatement
-
-  try {
-    const recordingUrl = req.body?.RecordingUrl;
-    const durationSec = parseInt(req.body?.RecordingDuration, 10) || 0;
-    const from = req.query?.from || "inconnu";
-    const callSid = req.body?.CallSid || "";
-
-    if (!recordingUrl) {
-      console.warn("[voicemail] recording-ready sans RecordingUrl — ignoré");
-      return;
-    }
-    // Message quasi vide (raccroché tout de suite) → on n'envoie rien.
-    if (durationSec < 2) {
-      console.log(`[voicemail] message trop court (${durationSec}s) from=${from} — ignoré`);
-      logEvent("voicemail_skipped_short", { duration_sec: durationSec });
-      return;
-    }
-
-    await sendVoicemailEmail({ recordingUrl, durationSec, from, callSid });
-    console.log(`[voicemail] courriel envoyé à ${VOICEMAIL_EMAIL_TO} (durée ${durationSec}s, from ${from})`);
-    logEvent("voicemail_emailed", { duration_sec: durationSec });
-  } catch (err) {
-    console.error("[voicemail] échec envoi courriel:", err);
-    logEvent("voicemail_error", { error: err.message });
-  }
+  processVoicemailRecording(req, "status-callback").catch(e => console.error("[voicemail] status-callback:", e));
 });
 
 

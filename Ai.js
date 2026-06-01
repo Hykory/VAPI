@@ -935,6 +935,18 @@ app.post("/capture_lead", async (req, res) => {
       }));
     }
 
+    // Garde-fou anti-transcription : un numéro nord-américain a 10 chiffres.
+    // La dictée vocale (STT) perd souvent des chiffres → on refuse un numéro trop
+    // court pour forcer l'IA à le reconfirmer plutôt qu'enregistrer un lead inutilisable.
+    const phoneDigits = phone.replace(/\D/g, "");
+    if (phoneDigits.length < 10) {
+      return res.json(vapiResult(toolCallId, {
+        ok: false,
+        saved: false,
+        message: "Le numéro de téléphone semble incomplet (il faut au moins dix chiffres). Redemande au client de répéter son numéro lentement, puis relis-le-lui chiffre par chiffre pour confirmation avant de l'enregistrer.",
+      }));
+    }
+
     // On log TOUJOURS l'événement (même si le courriel plante ensuite) pour que le
     // coach hebdo compte les leads. Téléphone hashé (cohérent avec les events SMS).
     logEvent("lead_captured", {

@@ -848,6 +848,138 @@ app.post("/search_shopify_products", async (req, res) => {
 
 
 // ╭───────────────────────────────────────────────────────────────────────╮
+// │  12bis. CAPTURE DE LEADS — capture_lead                               │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// BUT : quand l'IA détecte un vrai prospect (projet d'envergure), elle appelle
+// ce tool avec les coordonnées du client. On envoie un courriel instantané à
+// REPORT_EMAIL_TO + logEvent pour que le coach hebdo compte les leads.
+// Champs : name + phone (essentiels), project_type / budget / timeline / notes /
+// email / channel (optionnels). Déclenchement piloté côté prompt VAPI.
+
+async function sendLeadEmail(lead) {
+  if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY missing");
+  if (!REPORT_EMAIL_TO) throw new Error("REPORT_EMAIL_TO missing");
+
+  const nowHuman = new Date().toLocaleString("fr-CA", { timeZone: ANALYSIS_TIMEZONE });
+  const row = (label, val) =>
+    val ? `<tr><td style="padding:4px 12px 4px 0;font-weight:bold;white-space:nowrap;">${escapeXml(label)}</td><td style="padding:4px 0;">${escapeXml(val)}</td></tr>` : "";
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:560px;">
+      <h2 style="color:#0a7a55;">🎯 Nouveau lead Barracuda</h2>
+      <table style="border-collapse:collapse;font-size:15px;">
+        ${row("Nom", lead.name)}
+        ${row("Téléphone", lead.phone)}
+        ${row("Courriel", lead.email)}
+        ${row("Projet", lead.project_type)}
+        ${row("Budget", lead.budget)}
+        ${row("Délai", lead.timeline)}
+        ${row("Notes", lead.notes)}
+        ${row("Canal", lead.channel)}
+        ${row("Reçu le", nowHuman)}
+      </table>
+      <p style="color:#888;font-size:12px;margin-top:16px;">
+        Lead capturé automatiquement par l'assistant IA. Rappelle le client pour lui donner un estimé.
+      </p>
+    </div>`;
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: REPORT_EMAIL_FROM,
+      to: [REPORT_EMAIL_TO],
+      subject: `🎯 Nouveau lead — ${lead.name}${lead.project_type ? " (" + lead.project_type + ")" : ""}`,
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Resend API HTTP ${response.status}: ${text}`);
+  }
+}
+
+app.post("/capture_lead", async (req, res) => {
+  const { toolCallId, args } = getVapiToolCall(req);
+
+  try {
+    const name = (args.name || "").toString().trim();
+    const phone = (args.phone || "").toString().trim();
+    const lead = {
+      name,
+      phone,
+      email: (args.email || "").toString().trim(),
+      project_type: (args.project_type || "").toString().trim(),
+      budget: (args.budget || "").toString().trim(),
+      timeline: (args.timeline || "").toString().trim(),
+      notes: (args.notes || "").toString().trim(),
+      channel: (args.channel || "").toString().trim(),
+    };
+
+    // Validation : nom + téléphone obligatoires.
+    if (!name || !phone) {
+      return res.json(vapiResult(toolCallId, {
+        ok: false,
+        saved: false,
+        message: "Information manquante. Redemande poliment au client son nom ET son numéro de téléphone avant d'enregistrer le lead.",
+      }));
+    }
+
+    // Garde-fou : un numéro nord-américain a 10 chiffres. On refuse un numéro trop
+    // court (transcription incomplète) pour ne pas enregistrer un lead inutilisable.
+    const phoneDigits = phone.replace(/\D/g, "");
+    if (phoneDigits.length < 10) {
+      return res.json(vapiResult(toolCallId, {
+        ok: false,
+        saved: false,
+        message: "Le numéro de téléphone semble incomplet (il faut au moins dix chiffres). Redemande au client son numéro, puis relis-le-lui chiffre par chiffre pour confirmation avant de l'enregistrer.",
+      }));
+    }
+
+    // On log TOUJOURS l'événement (téléphone hashé) pour le coach hebdo.
+    logEvent("lead_captured", {
+      name,
+      phone_hash: hashPhone(phone),
+      project_type: lead.project_type || null,
+      budget: lead.budget || null,
+      timeline: lead.timeline || null,
+      channel: lead.channel || null,
+    });
+
+    let emailed = false;
+    try {
+      await sendLeadEmail(lead);
+      emailed = true;
+      console.log(`[capture_lead] Lead emailed: ${name} / projet="${lead.project_type}"`);
+    } catch (mailErr) {
+      console.error("[capture_lead] Email failed:", mailErr.message);
+      logEvent("error", { where: "capture_lead_email", message: mailErr.message });
+    }
+
+    return res.json(vapiResult(toolCallId, {
+      ok: true,
+      saved: true,
+      emailed,
+      message: "Lead enregistré. Confirme au client qu'un conseiller va le rappeler bientôt, et remercie-le.",
+    }));
+  } catch (err) {
+    console.error("[capture_lead] ERROR:", err);
+    logEvent("error", { where: "capture_lead", message: err.message });
+    return res.json(vapiResult(toolCallId, {
+      ok: false,
+      saved: false,
+      message: "Erreur technique en enregistrant les coordonnées. Demande au client de rappeler ou de passer au magasin.",
+    }));
+  }
+});
+
+
+// ╭───────────────────────────────────────────────────────────────────────╮
 // │  13. PONT SMS — Twilio ↔ VAPI Chat                                    │
 // ╰───────────────────────────────────────────────────────────────────────╯
 //
@@ -1946,6 +2078,7 @@ app.get("/", (_req, res) => {
     routes: [
       "POST /search_shopify_products",
       "POST /search_shopify_orders",
+      "POST /capture_lead",
       "POST /sms/incoming",
       "POST /voicemail/after-dial",
       "POST /voicemail/recording-done",

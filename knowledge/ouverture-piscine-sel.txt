@@ -1,0 +1,49 @@
+# Knowledge Base – Ouverture d'une piscine au sel
+
+## Température minimale du système au sel
+Si vous avez une piscine au sel, il est important de savoir que votre système au sel
+ne produira pas de chlore efficacement lorsque l'eau est sous environ 67 °F,
+soit 19,5 °C.
+
+## Étapes d'ouverture
+Pour l'ouverture, la première étape est simplement de remettre la piscine en fonction.
+Vous pouvez utiliser notre trousse d'ouverture habituelle. Nous recommandons de
+commencer avec du chlore directement et, selon l'état de l'eau, un traitement à
+l'algicide peut aussi être recommandé.
+
+## pH — à vérifier en premier
+Avant tout, vérifiez votre pH. Un pH trop élevé réduit considérablement l'efficacité
+du chlore. Si le pH est élevé, corrigez-le avant de poursuivre. À l'inverse, un pH trop
+bas n'empêche pas le chlore de fonctionner; il le rend même plus agressif. Par contre,
+le chlore sera consommé beaucoup plus rapidement et vous risquez de vous retrouver sans
+résiduel de chlore en peu de temps.
+
+## Cellule au sel — la garder ARRÊTÉE pendant l'ouverture
+Nous recommandons de ne pas faire fonctionner votre cellule au sel pendant l'ouverture.
+Si la cellule tente de produire alors que l'eau est trop froide, vous risquez de l'user
+inutilement. De plus, si vous effectuez un traitement choc avec de l'hypochlorite de
+calcium, le calcium peut se déposer sur les plaques de la cellule et entartrer les
+plaquettes.
+
+## Analyse d'eau et ajout de sel
+Une fois que l'eau est plus ou moins clarifiée, venez nous voir en magasin pour une
+analyse complète de l'eau. Nous pourrons alors balancer les paramètres et mesurer
+précisément le niveau de sel présent dans votre piscine.
+
+Il est important de noter qu'il n'existe pas de quantité universelle de sel à ajouter,
+même si vous connaissez les dimensions de votre piscine. Chaque hiver est différent.
+La pluie, la fonte des neiges et les vidanges partielles font varier la concentration
+de sel d'une année à l'autre. C'est pourquoi une analyse est nécessaire avant d'ajouter
+du sel.
+
+Une fois l'eau balancée, le niveau de sel ajusté et la température de l'eau suffisamment
+élevée, vous pourrez remettre votre système au sel en fonction.
+
+## Résumé (séquence)
+1. Ouvrez la piscine (remettre en fonction).
+2. Ajustez le pH.
+3. Traitez au chlore au besoin (+ algicide selon l'état de l'eau).
+4. Gardez la cellule au sel ARRÊTÉE.
+5. Faites analyser l'eau en magasin.
+6. Ajoutez le sel recommandé (selon l'analyse, jamais une quantité « universelle »).
+7. Remettez le système au sel en marche lorsque l'eau est suffisamment chaude (≥ 19,5 °C / 67 °F).

@@ -322,6 +322,7 @@ const SYNONYMS = {
   "sel":         ["salt", "saline", "electrolyse", "electrolyseur", "salt cell", "cell", "cellule", "intellichlor", "aquarite"],
   "oxygene":     ["oxygen", "peroxyde", "shock"],
   "choc":        ["shock", "superchloration", "super chlore"],
+  "smartchoc":   ["smart shock", "smart choc", "smartshock", "bioguard smart shock"],
 
   // --- Équipement ---
   "pompe":       ["pump", "circulateur", "moteur"],
@@ -334,7 +335,8 @@ const SYNONYMS = {
   "minuterie":   ["timer", "horloge", "controle"],
   "ecumoir":     ["skimmer", "ecumeur"],
   "buse":        ["jet", "return", "refoulement", "eyeball"],
-  "valve":       ["vanne", "valve multivoie", "multivoies", "multiport"],
+  "valve":       ["vanne", "valve multivoie", "multivoies", "multiport", "soupape", "variflo", "vari flo", "veriflow", "spring valve"],
+  "ressort":     ["spring", "spring valve", "ressort de soupape"],
   "tuyau":       ["hose", "boyau", "pipe", "conduite"],
   "raccord":     ["fitting", "union", "coude", "te", "elbow"],
   "drain":       ["drain de fond", "main drain", "bonde"],
@@ -347,6 +349,8 @@ const SYNONYMS = {
   "creusee":     ["inground", "in ground", "enterree", "enterre"],
   "horsterre":   ["hors terre", "above ground", "aboveground", "ht"],
   "semi":        ["semi creusee", "semi enterree", "semi inground"],
+  "poteau":      ["poteaux", "upright", "post", "montant"],
+  "plaque":      ["plaques", "plate", "wall fitting", "plaque de base", "rail"],
 
   // --- Marques fréquentes (à enrichir au besoin) ---
   "helios":      ["hellios"],
@@ -363,6 +367,9 @@ const SYNONYMS = {
   "hydropool":   [],
   "sundance":    [],
   "bullfrog":    [],
+  "starite":     ["sta rite", "sta-rite", "staright"],
+  "aqualeader":  ["aqua leader", "aquatour", "aqua tour", "aquatours"],
+  "variflo":     ["vari flo", "vari-flo", "veriflow", "veri flow"],
 
   // --- Tests d'eau ---
   "bandelette":  ["bandelettes", "strip", "strips", "test strip", "bandes test"],

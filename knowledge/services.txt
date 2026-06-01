@@ -1,4 +1,6 @@
-# Services offerts par Barracuda Piscines & Spas
+# Services offerts par Barracuda Piscines-Spas-Béton
+
+Source officielle : https://piscinesbarracuda.com/pages/services-piscine-spa-gatineau
 
 ## But de ce document
 Lister clairement les services offerts et la façon de répondre aux demandes de prix de
@@ -8,28 +10,53 @@ prix de service.
 ## Quand un client demande
 - « est-ce que vous faites l'ouverture / la fermeture de piscine »
 - « est-ce que vous réparez les piscines / les spas »
-- « est-ce que vous vous déplacez à domicile »
+- « est-ce que vous installez des piscines / des spas »
+- « est-ce que vous faites du béton »
 - « combien ça coûte une ouverture / une réparation / une installation »
-- « est-ce que vous installez des piscines »
+- « est-ce que vous faites l'analyse d'eau »
 
 ## Services OFFERTS
-- Ouverture de piscine (creusée ET hors-terre).
-- Fermeture / hivernage de piscine (creusée ET hors-terre).
-- Réparations (piscines et spas).
-- Visites à domicile, sur rendez-vous (diagnostic, réparation).
-- Installation de piscines creusées (béton, fibre de verre, membrane Soprema) — sur projet.
-- Installation de piscines hors-terre — sur demande.
-- Vente de produits d'entretien, pièces et accessoires (piscines et spas).
-- Analyse d'eau gratuite en magasin.
-- Remplacement de toile vinyle (voir vinyl-liner-replacement).
+
+### Vente et installation
+- Spas
+- Spas de nage
+- Piscines en fibre de verre
+- Membrane armée soudée
+- Projets de piscine creusée sur mesure
+
+### Entretien et réparations
+- Piscines creusées ET hors-terre
+- Spas et spas de nage
+- Piscines en fibre de verre
+- Piscines creusées (tous types) — correction de problèmes
+- Ouverture et fermeture / hivernage de piscine (voir ouverture-printemps, fermeture-automne)
+
+### Rénovations
+- Remplacement de toile de vinyle (voir vinyl-liner-replacement)
+
+### Travaux de béton
+- Béton estampé
+- Béton de tous genres
+- Petits travaux d'excavation
+
+### Autres services
+- Assistance et consultation aux projets
+- Analyse d'eau GRATUITE en magasin
+- Application mobile gratuite Mes Bassins (analyse par bandelette via téléphone)
 
 ## Positionnement
-La spécialité, c'est la piscine creusée et le spa. Le hors-terre est offert mais
-secondaire. On ne refuse jamais un client hors-terre.
+La spécialité, c'est la piscine creusée (fibre de verre, membrane armée soudée, projets
+sur mesure) et le spa. Le hors-terre est couvert surtout en entretien et réparation. On
+ne refuse jamais un client hors-terre.
+
+## Soumission / rendez-vous — RÈGLE
+La page le dit clairement : TOUS les services se font sur demande de soumission ou prise
+de rendez-vous. Pour toute demande de service, ne donne pas de prix : propose une
+soumission, un rendez-vous, ou de laisser ses coordonnées.
 
 ## Prix des services — RÈGLE ABSOLUE
-- Les prix des SERVICES (ouverture, fermeture, réparation, installation, visite à
-  domicile) ne sont PAS connus de l'assistant et ne sont PAS dans Shopify.
+- Les prix des SERVICES (ouverture, fermeture, réparation, installation, travaux de béton,
+  rénovation, visite) ne sont PAS connus de l'assistant et ne sont PAS dans Shopify.
 - N'invente JAMAIS un prix de service, même approximatif, même « autour de » ou
   « habituellement entre X et Y ».
 - Réponse type : « Le prix dépend de votre situation. Je vais vous mettre en contact
@@ -45,9 +72,12 @@ l'extérieur.
 
 ## Réponses courtes
 Demande de service offert : confirme qu'on le fait, puis propose la prochaine étape
-(rendez-vous, magasin, ou laisser ses coordonnées).
+(soumission, rendez-vous, magasin, ou laisser ses coordonnées).
 
 Demande de prix de service : réponse type ci-dessus (devis / conseiller).
 
-Demande hors-terre : « On se spécialise en creusée, mais on s'occupe aussi du hors-terre.
-Dites-moi ce que vous cherchez. »
+Demande d'analyse d'eau : « Oui, on fait l'analyse d'eau gratuitement en magasin.
+Apportez un échantillon de votre eau et on vous conseille sur place. »
+
+Demande hors-terre : « On se spécialise en creusée, mais on s'occupe aussi du hors-terre
+pour l'entretien et les réparations. Dites-moi ce que vous cherchez. »

@@ -57,8 +57,12 @@ dotenv.config();
 // Crée l'application serveur
 const app = express();
 app.use(cors());                                  // Autorise les appels d'autres domaines
-app.use(express.json());                          // Comprend les requêtes en JSON
-app.use(express.urlencoded({ extended: true })); // Comprend les requêtes en formulaire (Twilio)
+// limit "5mb" : VAPI envoie tout le transcript de l'appel dans le payload du tool.
+// En cours d'appel l'historique grossit et dépasse la limite express par défaut
+// (100 kb) → rejet HTTP 413 → le tool échoue et l'IA reste muette ("un instant"
+// puis silence). 5 mb donne une marge large.
+app.use(express.json({ limit: "5mb" }));          // Comprend les requêtes en JSON
+app.use(express.urlencoded({ extended: true, limit: "5mb" })); // formulaire (Twilio)
 
 
 // ╭───────────────────────────────────────────────────────────────────────╮
@@ -202,14 +206,32 @@ function hashPhone(phone) {
 async function fetchShopifyGraphQL(query, variables = {}) {
   const url = `https://${SHOPIFY_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Shopify-Access-Token": SHOPIFY_TOKEN,   // notre clé d'accès Shopify
-    },
-    body: JSON.stringify({ query, variables }),
-  });
+  // Timeout 8 s : sans ça, si Shopify ne répond pas, le fetch reste suspendu
+  // indéfiniment (on a déjà vu un appel hang ~5 min → VAPI ferme → silence).
+  // Au-delà de 8 s on abandonne proprement : l'exception remonte, la cascade
+  // passe au niveau suivant ou renvoie une erreur que l'IA peut verbaliser.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": SHOPIFY_TOKEN,   // notre clé d'accès Shopify
+      },
+      body: JSON.stringify({ query, variables }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("Shopify GraphQL timeout après 8s");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 
   // Si Shopify renvoie une erreur HTTP (ex: 401 = pas autorisé, 500 = bug Shopify)
   if (!response.ok) {

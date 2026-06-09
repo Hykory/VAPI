@@ -107,6 +107,11 @@ const VOICEMAIL_EMAIL_FROM = process.env.VOICEMAIL_EMAIL_FROM || "Barracuda Boit
 // Absents → le courriel contient quand même le lien d'écoute (dégradation propre).
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+// SMS SORTANT (chantier 5) : numéro Twilio expéditeur (E.164, ex: +18196174343)
+// et texte du SMS de bienvenue envoyé sur « oui » à l'accueil (modifiable sans code).
+const TWILIO_SMS_FROM = process.env.TWILIO_SMS_FROM;
+const WELCOME_SMS_TEXT = process.env.WELCOME_SMS_TEXT ||
+  "Ici Piscines Barracuda. Répondez à ce message avec votre question — produit, commande ou horaire — et notre assistant vous aide immédiatement. Merci de votre appel!";
 // URL publique de ce serveur (pour les callbacks Twilio). Défaut = l'URL prod Railway connue.
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "https://barracuda-ai-agent-production-806d.up.railway.app").replace(/\/+$/, "");
 // Message d'accueil joué quand personne ne répond (modifiable via env sans toucher au code).
@@ -1023,6 +1028,413 @@ app.post("/capture_lead", async (req, res) => {
       ok: false,
       saved: false,
       message: "Erreur technique en enregistrant les coordonnées. Demande au client de rappeler ou de passer au magasin.",
+    }));
+  }
+});
+
+
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  12ter. PONT CUSTOM-LLM — Vapi (OpenAI) ↔ Claude (Anthropic)          │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// BUT : remplacer l'IA native de Vapi (gpt-4.1-mini) par CLAUDE, tout en
+// gardant Vapi content. Vapi en mode `custom-llm` appelle CE endpoint au
+// FORMAT OpenAI (POST /chat/completions, stream SSE) et attend une réponse au
+// FORMAT OpenAI. Claude parle un autre dialecte (Messages API). Ce pont fait
+// donc la TRADUCTION dans les deux sens, en temps réel.
+//
+//   Vapi ──(req OpenAI)──▶ ce pont ──(req Anthropic)──▶ Claude Haiku 4.5
+//   Vapi ◀──(SSE OpenAI)── ce pont ◀──(SSE Anthropic)── Claude
+//
+// Les TOOL CALLS (search_shopify_products, etc.) sont RELAYÉS à Vapi au format
+// OpenAI : Vapi appelle alors tes endpoints existants (/search_shopify_products
+// …) puis renvoie le résultat dans le tour suivant. Tes 3 tools restent donc la
+// seule source de vérité — rien n'est ré-implémenté ici.
+//
+// MODÈLE : Claude Haiku 4.5 (le plus rapide → meilleure latence vocale).
+
+const CUSTOM_LLM_MODEL = "claude-haiku-4-5";
+const CUSTOM_LLM_MAX_TOKENS = 1024;          // les réponses vocales sont courtes
+const CUSTOM_LLM_TEMPERATURE = 0.3;          // aligné sur la config Vapi de Mathieu
+
+// Parse JSON sans planter (les arguments de tool peuvent être "" ou partiels).
+function safeJsonParse(str, fallback = {}) {
+  if (str == null || str === "") return fallback;
+  if (typeof str === "object") return str;
+  try { return JSON.parse(str); } catch { return fallback; }
+}
+
+// ── Traduction REQUÊTE : format OpenAI (Vapi) → format Anthropic (Claude) ──
+function openaiToAnthropic(body) {
+  const systemParts = [];
+  const messages = [];
+
+  for (const msg of body.messages || []) {
+    const role = msg.role;
+
+    // 1) Les messages "system" d'OpenAI deviennent le champ `system` d'Anthropic.
+    if (role === "system") {
+      if (msg.content) systemParts.push(typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content));
+      continue;
+    }
+
+    // 2) Les résultats de tool ("tool" chez OpenAI) deviennent des blocs
+    //    tool_result, regroupés dans un message "user" (exigence d'Anthropic).
+    if (role === "tool") {
+      const block = {
+        type: "tool_result",
+        tool_use_id: msg.tool_call_id,
+        content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content),
+      };
+      const last = messages[messages.length - 1];
+      if (last && last.role === "user" && Array.isArray(last.content)) {
+        last.content.push(block);
+      } else {
+        messages.push({ role: "user", content: [block] });
+      }
+      continue;
+    }
+
+    // 3) Message "user" simple.
+    if (role === "user") {
+      messages.push({ role: "user", content: typeof msg.content === "string" ? msg.content : (msg.content || "") });
+      continue;
+    }
+
+    // 4) Message "assistant" : texte et/ou tool_calls → blocs Anthropic.
+    if (role === "assistant") {
+      const content = [];
+      if (msg.content) content.push({ type: "text", text: msg.content });
+      for (const tc of msg.tool_calls || []) {
+        content.push({
+          type: "tool_use",
+          id: tc.id,
+          name: tc.function?.name,
+          input: safeJsonParse(tc.function?.arguments, {}),
+        });
+      }
+      // Anthropic refuse un content vide : on met un espace si rien.
+      messages.push({ role: "assistant", content: content.length ? content : [{ type: "text", text: " " }] });
+      continue;
+    }
+  }
+
+  // ── Injection système GARANTIE PAR LE CODE ──
+  // Recommandation des deux audits (8 juin 2026) : le custom-LLM est « la
+  // solution structurelle définitive » aux dérives langue/montants → on force
+  // ces règles dans le BACKEND, pas seulement dans le prompt Vapi. Ainsi elles
+  // s'appliquent quel que soit le prompt envoyé par Vapi (et même si Haiku
+  // dérape sous charge : prix collé au stock « 1199 100 », anglais parasite…).
+  const isEN = /(-en|english)/i.test(body.model || "");
+  systemParts.push(isEN
+    ? `ABSOLUTE LANGUAGE RULE: always reply in English, 100%. The reference documents are in French — translate their content to English before answering.
+
+NUMBERS AND PRICES (spoken, not written):
+- Say every amount in words. Never read a raw-digit price. Never glue price and stock together (they are two distinct facts). If a price is over ten thousand dollars or marked unavailable, do NOT state it — say you'll confirm the exact price. Order numbers: digit by digit. Never read URLs, SKUs or tracking numbers aloud — offer to send them by SMS.
+
+SPOKEN FORMAT — you are on the phone, not writing:
+- NO emojis, NO markdown (no *, no #, no bullet lists). Natural spoken sentences only. Keep it short: one or two sentences, never a point-by-point list.`
+    : `RÈGLE ABSOLUE DE LANGUE : réponds TOUJOURS en français québécois, à 100 %, même si un outil ou un nom de produit contient de l'anglais.
+
+NOMBRES ET PRIX (tu parles, tu n'écris pas) :
+- Dis tout montant en lettres : 11,99 $ → « onze dollars et quatre-vingt-dix-neuf ».
+- Ne dis JAMAIS un prix en chiffres bruts (« 11 99 », « 1199 100 »).
+- Ne colle JAMAIS le prix et le stock : ce sont deux infos distinctes.
+- Si un prix dépasse dix mille dollars ou est marqué indisponible, ne l'annonce pas : dis que tu préfères confirmer le prix exact.
+- Numéros de commande : chiffre par chiffre. N'énonce jamais les URLs, SKU ou numéros de suivi à voix haute — propose plutôt le SMS.
+
+FORMAT PARLÉ — tu parles au téléphone, tu n'écris pas :
+- AUCUN emoji, AUCUN markdown (pas de *, pas de #, pas de listes à puces). Que des phrases naturelles, comme à l'oral. Reste bref : une à deux phrases, jamais d'énumération en points.`);
+
+  // Tools OpenAI → Anthropic.
+  const tools = (body.tools || [])
+    .filter(t => t.type === "function" && t.function?.name)
+    .map(t => ({
+      name: t.function.name,
+      description: t.function.description || "",
+      input_schema: t.function.parameters || { type: "object", properties: {} },
+    }));
+
+  // ⚠️ Anthropic EXIGE au moins un message, et que le PREMIER soit "user".
+  // En mode "assistant parle en premier", Vapi n'envoie QUE le system au 1er
+  // tour → messages vide → erreur 400 (cause de "custom-llm-llm-failed").
+  // On injecte alors un déclencheur user pour que Claude génère son accueil.
+  if (messages.length === 0 || messages[0].role !== "user") {
+    messages.unshift({ role: "user", content: isEN ? "Hello" : "Bonjour" });
+  }
+
+  return {
+    system: systemParts.join("\n\n"),
+    messages,
+    tools,
+    temperature: typeof body.temperature === "number" ? body.temperature : CUSTOM_LLM_TEMPERATURE,
+    max_tokens: body.max_tokens || CUSTOM_LLM_MAX_TOKENS,
+  };
+}
+
+// Mappe le stop_reason Anthropic → finish_reason OpenAI.
+function mapFinishReason(stopReason) {
+  if (stopReason === "tool_use") return "tool_calls";
+  if (stopReason === "max_tokens") return "length";
+  return "stop";  // end_turn, stop_sequence, etc.
+}
+
+// ── L'ENDPOINT custom-LLM ──
+app.post("/chat/completions", async (req, res) => {
+  if (!ANTHROPIC_API_KEY) {
+    return res.status(500).json({ error: { message: "ANTHROPIC_API_KEY missing" } });
+  }
+
+  const body = req.body || {};
+  const wantsStream = body.stream !== false;          // Vapi custom-llm streame par défaut
+  const echoModel = body.model || CUSTOM_LLM_MODEL;   // renvoyé tel quel dans les chunks
+  const start = Date.now();
+
+  const { system, messages, tools, temperature, max_tokens } = openaiToAnthropic(body);
+
+  const anthropicBody = {
+    model: CUSTOM_LLM_MODEL,
+    max_tokens,
+    temperature,
+    messages,
+    stream: wantsStream,
+  };
+  if (system) anthropicBody.system = system;
+  if (tools.length) anthropicBody.tools = tools;
+
+  let upstream;
+  try {
+    upstream = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(anthropicBody),
+    });
+  } catch (err) {
+    console.error("[custom-llm] fetch Anthropic failed:", err.message);
+    return res.status(502).json({ error: { message: "Upstream Anthropic unreachable" } });
+  }
+
+  if (!upstream.ok) {
+    const text = await upstream.text();
+    console.error(`[custom-llm] Anthropic HTTP ${upstream.status}: ${text.slice(0, 500)}`);
+    return res.status(502).json({ error: { message: `Anthropic HTTP ${upstream.status}` } });
+  }
+
+  const chatId = "chatcmpl-" + Date.now();
+  const created = Math.floor(Date.now() / 1000);
+
+  // ── Chemin NON-STREAM (rare avec Vapi, mais on le gère proprement) ──
+  if (!wantsStream) {
+    const data = await upstream.json();
+    let textOut = "";
+    const toolCalls = [];
+    for (const block of data.content || []) {
+      if (block.type === "text") textOut += block.text;
+      else if (block.type === "tool_use") {
+        toolCalls.push({
+          id: block.id,
+          type: "function",
+          function: { name: block.name, arguments: JSON.stringify(block.input || {}) },
+        });
+      }
+    }
+    const message = { role: "assistant", content: textOut || null };
+    if (toolCalls.length) message.tool_calls = toolCalls;
+    console.log(`[custom-llm] non-stream done in ${Date.now() - start}ms (tools=${toolCalls.length})`);
+    return res.json({
+      id: chatId, object: "chat.completion", created, model: echoModel,
+      choices: [{ index: 0, message, finish_reason: mapFinishReason(data.stop_reason) }],
+      usage: data.usage ? {
+        prompt_tokens: data.usage.input_tokens,
+        completion_tokens: data.usage.output_tokens,
+        total_tokens: (data.usage.input_tokens || 0) + (data.usage.output_tokens || 0),
+      } : undefined,
+    });
+  }
+
+  // ── Chemin STREAM : on re-streame les chunks Anthropic en chunks OpenAI ──
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+
+  const sendChunk = (delta, finish_reason = null) => {
+    const chunk = {
+      id: chatId, object: "chat.completion.chunk", created, model: echoModel,
+      choices: [{ index: 0, delta, finish_reason }],
+    };
+    res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+  };
+
+  sendChunk({ role: "assistant", content: "" });  // premier chunk = le rôle (convention OpenAI)
+
+  const blockTypeByIndex = {};   // index de bloc Anthropic → "text" | "tool_use"
+  const toolIdxByBlock = {};     // index de bloc Anthropic → index OpenAI du tool_call
+  let toolCounter = -1;
+  let stopReason = "end_turn";
+  let buffer = "";
+
+  const handleEvent = (json) => {
+    switch (json.type) {
+      case "content_block_start": {
+        const cb = json.content_block || {};
+        blockTypeByIndex[json.index] = cb.type;
+        if (cb.type === "tool_use") {
+          toolCounter += 1;
+          toolIdxByBlock[json.index] = toolCounter;
+          sendChunk({ tool_calls: [{
+            index: toolCounter, id: cb.id, type: "function",
+            function: { name: cb.name, arguments: "" },
+          }] });
+        }
+        break;
+      }
+      case "content_block_delta": {
+        const d = json.delta || {};
+        if (d.type === "text_delta") {
+          sendChunk({ content: d.text });
+        } else if (d.type === "input_json_delta") {
+          sendChunk({ tool_calls: [{
+            index: toolIdxByBlock[json.index],
+            function: { arguments: d.partial_json || "" },
+          }] });
+        }
+        break;
+      }
+      case "message_delta":
+        if (json.delta?.stop_reason) stopReason = json.delta.stop_reason;
+        break;
+    }
+  };
+
+  try {
+    // node-fetch v3 : response.body est un Readable Node → on itère les buffers,
+    // on accumule et on découpe les lignes SSE "data: {...}".
+    for await (const chunk of upstream.body) {
+      buffer += chunk.toString("utf8");
+      let nl;
+      while ((nl = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        let json;
+        try { json = JSON.parse(payload); } catch { continue; }
+        if (json.type === "error") {
+          console.error("[custom-llm] Anthropic stream error:", JSON.stringify(json.error));
+          continue;
+        }
+        handleEvent(json);
+      }
+    }
+
+    sendChunk({}, mapFinishReason(stopReason));
+    res.write("data: [DONE]\n\n");
+    res.end();
+    console.log(`[custom-llm] stream done in ${Date.now() - start}ms (stop=${stopReason}, tools=${toolCounter + 1})`);
+  } catch (err) {
+    console.error("[custom-llm] stream relay error:", err.message);
+    try {
+      sendChunk({}, "stop");
+      res.write("data: [DONE]\n\n");
+      res.end();
+    } catch { /* connexion déjà coupée */ }
+  }
+});
+
+
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  12quater. SMS SORTANT — /send-sms + tool Vapi send_sms              │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// BUT : permettre au backend ET à l'IA Vapi d'ENVOYER des SMS via Twilio.
+// Usages :
+//   • « oui → SMS immédiat » de l'accueil : le client dit oui → l'IA appelle le
+//     tool Vapi `send_sms` → on envoie le SMS de bienvenue tout de suite.
+//   • Tout suivi / lien envoyé par texto pendant ou après l'appel.
+//
+// Deux entrées :
+//   • POST /send-sms        → JSON simple { to, body }  (usage direct / test)
+//   • POST /send_sms_tool   → format tool Vapi (le numéro de l'appelant est
+//                              récupéré automatiquement si l'IA ne fournit pas `to`)
+
+// Normalise un numéro en E.164 nord-américain (Twilio l'exige : +1XXXXXXXXXX).
+function toE164(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  if (s.startsWith("+")) return s.replace(/[^\d+]/g, "");      // déjà E.164
+  const digits = s.replace(/\D/g, "");
+  if (digits.length === 10) return "+1" + digits;             // 10 chiffres → +1
+  if (digits.length === 11 && digits.startsWith("1")) return "+" + digits;
+  return null;                                                // format inconnu
+}
+
+// Envoie un SMS via l'API REST Twilio. Renvoie { success, message_id, to }.
+async function sendSmsViaTwilio(to, body) {
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) throw new Error("TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN manquants");
+  if (!TWILIO_SMS_FROM) throw new Error("TWILIO_SMS_FROM manquant (numéro expéditeur)");
+  const toE = toE164(to);
+  if (!toE) throw new Error(`Numéro destinataire invalide: "${to}"`);
+  if (!body || !String(body).trim()) throw new Error("Corps du SMS vide");
+
+  const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString("base64");
+  const params = new URLSearchParams({ To: toE, From: TWILIO_SMS_FROM, Body: String(body) });
+
+  const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`, {
+    method: "POST",
+    headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString(),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(`Twilio HTTP ${resp.status}: ${data.message || JSON.stringify(data).slice(0, 200)}`);
+  return { success: true, message_id: data.sid, to: toE };
+}
+
+// ── Endpoint JSON simple : POST /send-sms  { to, body } ──
+app.post("/send-sms", async (req, res) => {
+  const { to, body } = req.body || {};
+  try {
+    const result = await sendSmsViaTwilio(to, body);
+    logEvent("sms_sent", { to_hash: hashPhone(result.to), via: "send-sms", chars: (body || "").length });
+    console.log(`[send-sms] envoyé à ${result.to} (sid=${result.message_id})`);
+    return res.json(result);
+  } catch (err) {
+    console.error("[send-sms] ERREUR:", err.message);
+    logEvent("error", { where: "send-sms", message: err.message });
+    return res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// ── Tool Vapi : POST /send_sms_tool (format tool VAPI) ──
+// L'IA fournit `body` (le texte). `to` est optionnel : si absent, on prend le
+// numéro de l'appelant depuis l'enveloppe Vapi (le plus fiable en vocal).
+app.post("/send_sms_tool", async (req, res) => {
+  const { toolCallId, args } = getVapiToolCall(req);
+  const callerNumber = req.body?.message?.call?.customer?.number || null;
+  const to = args.to || callerNumber;
+  const body = args.body || args.message || WELCOME_SMS_TEXT;   // défaut = SMS de bienvenue
+
+  try {
+    const result = await sendSmsViaTwilio(to, body);
+    logEvent("sms_sent", { to_hash: hashPhone(result.to), via: "vapi_tool", chars: String(body).length });
+    console.log(`[send_sms_tool] envoyé à ${result.to} (sid=${result.message_id})`);
+    return res.json(vapiResult(toolCallId, {
+      ok: true,
+      sent: true,
+      message: "SMS envoyé avec succès. Confirme-le au client à voix haute, puis poursuis la conversation.",
+    }));
+  } catch (err) {
+    console.error("[send_sms_tool] ERREUR:", err.message);
+    logEvent("error", { where: "send_sms_tool", message: err.message });
+    return res.json(vapiResult(toolCallId, {
+      ok: false,
+      sent: false,
+      message: "Je n'ai pas réussi à envoyer le SMS. Excuse-toi auprès du client et propose de réessayer ou de noter son numéro.",
     }));
   }
 });

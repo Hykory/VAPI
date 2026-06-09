@@ -715,7 +715,24 @@ async function cascadeSearch(args) {
 // L'IA reçoit la liste des produits trouvés. On la simplifie pour ne
 // garder QUE ce qui lui sert (titre, prix, stock, URL, image, variantes).
 
+// ⭐ GARDE-FOU PRIX (corrige le bug du « 99999 dollars » lu à voix haute).
+// Shopify renvoie parfois un prix bidon (99999 = produit « sur demande »,
+// 0 = pas de prix, ou valeur manquante). Tout prix nul, négatif, non
+// numérique, ou au-dessus de ce seuil est jugé invalide : on renvoie null
+// + un drapeau price_unavailable que le prompt Vapi sait gérer (Barry ne
+// lit alors AUCUN chiffre et propose de confirmer le prix autrement).
+const PRICE_SANITY_MAX = 10000;
+
+function sanePrice(value) {
+  const n = parseFloat(value);
+  if (!Number.isFinite(n) || n <= 0 || n > PRICE_SANITY_MAX) return null;
+  return n;
+}
+
 function formatProduct(p) {
+  const priceMin = sanePrice(p.priceRangeV2?.minVariantPrice?.amount);
+  const priceMax = sanePrice(p.priceRangeV2?.maxVariantPrice?.amount);
+
   return {
     id: p.id,
     title: p.title,
@@ -726,17 +743,23 @@ function formatProduct(p) {
     total_inventory: p.totalInventory,
     url: p.onlineStoreUrl,
     image: p.featuredImage?.url || null,
-    price_min: parseFloat(p.priceRangeV2?.minVariantPrice?.amount ?? "0"),
-    price_max: parseFloat(p.priceRangeV2?.maxVariantPrice?.amount ?? "0"),
+    price_min: priceMin,
+    price_max: priceMax,
+    // true = prix invalide en base (99999, 0, manquant) → NE PAS l'annoncer.
+    price_unavailable: priceMin === null,
     currency: p.priceRangeV2?.minVariantPrice?.currencyCode || "CAD",
-    variants: (p.variants?.edges || []).map(v => ({
-      id: v.node.id,
-      title: v.node.title,
-      sku: v.node.sku,
-      price: parseFloat(v.node.price),
-      stock: v.node.inventoryQuantity,
-      available: v.node.availableForSale,
-    })),
+    variants: (p.variants?.edges || []).map(v => {
+      const vp = sanePrice(v.node.price);
+      return {
+        id: v.node.id,
+        title: v.node.title,
+        sku: v.node.sku,
+        price: vp,                       // null si bidon, au lieu de 99999
+        price_unavailable: vp === null,
+        stock: v.node.inventoryQuantity,
+        available: v.node.availableForSale,
+      };
+    }),
   };
 }
 

@@ -336,6 +336,7 @@ const SYNONYMS = {
   "chlore":      ["chlorine", "chl", "trichlore", "dichlore", "hypochlorite"],
   "brome":       ["bromine"],
   "ph":          ["ph minus", "ph plus", "ph moins", "ph up", "ph down"],
+  "acide chlorhydrique": ["acide muriatique", "muriatique", "muriatic acid", "muriatic"],
   "alcalinite":  ["alkalinity", "alc", "ta"],
   "durete":      ["calcium", "hardness", "ch", "durete calcique"],
   "stabilisant": ["stabilizer", "acide cyanurique", "cya", "cyanuric"],
@@ -361,7 +362,8 @@ const SYNONYMS = {
   "ressort":     ["spring", "spring valve", "ressort de soupape"],
   "tuyau":       ["hose", "boyau", "pipe", "conduite"],
   "raccord":     ["fitting", "union", "coude", "te", "elbow"],
-  "drain":       ["drain de fond", "main drain", "bonde"],
+  "joint":       ["o-ring", "oring", "o ring", "joint torique", "gasket", "seal", "joint detancheite"],
+  "drain":       ["drain de fond", "main drain", "bonde", "bouchon de vidange", "drain plug", "plug"],
 
   // --- Liner / structure / type de piscine ---
   "toile":       ["liner", "toile vinyle", "vinyl liner", "membrane"],
@@ -402,6 +404,8 @@ const SYNONYMS = {
   // --- Spa ---
   "spa":         ["hot tub", "jacuzzi", "tourbillon", "bain a remous", "tub", "hydropool", "sundance", "bullfrog", "hydromassage"],
   "filtre spa":  ["spa filter", "filtre jacuzzi"],
+  "clavier spa": ["topside", "topside control", "control pad", "keypad", "clavier de controle"],
+  "element chauffant": ["heating element", "heater element", "element chauffant spa"],
 
   // --- Piscine générique ---
   "piscine":     ["pool", "swimming pool", "bassin"],

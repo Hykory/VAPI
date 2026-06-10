@@ -38,18 +38,12 @@ La plupart des modèles sont compatibles avec les piscines hors terre et creusé
 
 ## Guide de sélection
 
-Piscine hors terre — recommander généralement, selon la taille :
+Barracuda offre deux modèles de robots BUBLUE :
 
-* B10P
-* Bubot 300P
-* Bubot 500P
+* Piscine hors terre → **BUBLUE B10Ps** (sans fil) — 399,99 $.
+* Piscine creusée → **BUBLUE C10P** (sans fil) — 999,99 $.
 
-Piscine creusée — recommander généralement, selon les dimensions, la présence de murs à nettoyer, la ligne d'eau et la quantité de débris :
-
-* C10P
-* D10P
-* Bubot 700
-* Bubot 800P
+Pour bien orienter le client, demander si la piscine est hors terre ou creusée, puis les dimensions, la profondeur et la quantité de débris. Toujours confirmer le prix et la disponibilité exacts avec `search_shopify_products`. Ne jamais proposer un modèle que Barracuda ne vend pas (s'en tenir au B10Ps et au C10P).
 
 ## Fonctionnalités importantes
 
@@ -61,19 +55,15 @@ AI Navigation : capteurs intelligents pour éviter les obstacles, couvrir plus d
 
 ## Batterie
 
-Durée — varie selon le modèle. Exemples :
+Durée — varie selon le modèle. Toujours consulter les spécifications du modèle exact.
 
-* B10P : environ 120 minutes.
+* B10Ps : environ 120 minutes.
 * C10P : jusqu'à 240 minutes.
-* Bubot 300P : environ 90 minutes.
 
-Toujours consulter les spécifications du modèle exact.
+Recharge : généralement entre 3 et 4 heures selon le modèle.
 
-Recharge : généralement entre 3 et 4 heures selon le modèle. Temps de recharge typiques :
-
-* B10P : environ 2,5 heures.
+* B10Ps : environ 2,5 heures.
 * C10P : environ 3 heures.
-* Certains modèles : jusqu'à 4 heures.
 
 ## Utilisation du robot
 

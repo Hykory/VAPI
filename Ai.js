@@ -422,7 +422,7 @@ const SYNONYMS = {
   "ouverture":   ["opening", "demarrage"],
 
   // --- Nettoyage ---
-  "robot":       ["robotic cleaner", "aspirateur robot", "cleaner", "polaris", "dolphin"],
+  "robot":       ["robotic cleaner", "aspirateur robot", "cleaner", "polaris", "dolphin", "nettoyeur", "robot nettoyeur", "robot de piscine", "nettoyeur de piscine", "pool cleaner"],
   "balai":       ["brush", "broom", "brosse"],
   "epuisette":   ["skim net", "leaf net", "puise"],
   "aspirateur":  ["vacuum", "aspirateur manuel"],

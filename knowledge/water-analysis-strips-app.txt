@@ -1,31 +1,33 @@
-# Application gratuite d'analyse d'eau par bandelettes (Mes Bassins)
+# Outil d'analyse d'eau en ligne (bandelettes Barracuda)
 
 ## Quand un client demande
-- « comment utiliser l'application »
+- « comment utiliser l'outil d'analyse d'eau »
 - « ça veut dire quoi mes résultats »
 - « j'ai testé mon eau avec la bandelette »
-- « est-ce que je peux tester l'eau avec mon téléphone »
-- « l'app me dit d'ajouter X, c'est correct »
+- « est-ce que je peux tester l'eau moi-même »
+- « l'outil me dit d'ajouter X, c'est correct »
 - « je comprends pas la recommandation »
 - « ma bandelette a changé de couleur »
 - « comment lire ma bandelette d'analyse d'eau »
-- « avez-vous une application pour l'eau »
+- « avez-vous un outil en ligne pour l'eau »
+- « faites-vous l'analyse d'eau »
 
 ## Faits clés
-- Barracuda offre un outil GRATUIT : application mobile qui lit les couleurs d'une bandelette via la caméra du téléphone et donne des recommandations.
-- Nom de l'application : Mes Bassins.
-- Fonctionnement : le client prend une photo de sa bandelette → l'application interprète automatiquement les couleurs → recommandations chimiques personnalisées.
-- L'application repose sur des métadonnées Shopify (bassins du client, historique des analyses).
+- Barracuda offre DEUX façons de faire analyser l'eau :
+  1. L'analyse GRATUITE en magasin (apporter un échantillon d'eau).
+  2. Un OUTIL EN LIGNE sur le site web, dans la section « Outils d'analyse d'eau », pour faire une analyse maison avec nos bandelettes d'analyse Barracuda.
+- Fonctionnement de l'outil en ligne : le client teste son eau avec la bandelette Barracuda, entre/lit ses résultats dans l'outil, et l'outil lui donne des recommandations.
+- Ce n'est PAS une application mobile à télécharger : c'est un outil accessible directement sur le site web de Barracuda.
 - L'analyse en magasin reste plus précise et est aussi gratuite — toujours la proposer si la situation est complexe ou douteuse.
 
 ## Limites importantes (ne jamais franchir)
 - Ne JAMAIS inventer un dosage chimique précis sans données fiables.
 - Ne pas contredire une analyse humaine faite en magasin.
-- L'application n'est pas un substitut à une analyse professionnelle quand il y a un problème complexe.
+- L'outil en ligne n'est pas un substitut à une analyse professionnelle quand il y a un problème complexe.
 - Si les résultats semblent incohérents → recommander une analyse magasin plutôt que de pousser un produit.
 
 ## Réponse vocale courte
-« Notre application gratuite Mes Bassins permet de scanner votre bandelette avec votre téléphone et d'obtenir des recommandations. Si la lecture n'est pas claire ou que vous voulez une recommandation précise, passez en magasin avec un échantillon — l'analyse est gratuite. »
+« On fait l'analyse d'eau gratuitement en magasin — vous apportez un échantillon et on s'en occupe. On a aussi un outil sur notre site web, dans la section « Outils d'analyse d'eau », pour faire une analyse maison avec nos bandelettes d'analyse Barracuda. Si la lecture n'est pas claire ou que vous voulez une recommandation précise, l'analyse en magasin est gratuite. »
 
 ## Escalade
 - Résultats contradictoires ou très anciens → analyse magasin recommandée.

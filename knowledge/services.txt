@@ -43,7 +43,7 @@ prix de service.
 ### Autres services
 - Assistance et consultation aux projets
 - Analyse d'eau GRATUITE en magasin
-- Application mobile gratuite Mes Bassins (analyse par bandelette via téléphone)
+- Outil d'analyse d'eau en ligne sur le site web (section « Outils d'analyse d'eau », avec nos bandelettes d'analyse Barracuda)
 
 ## Positionnement
 La spécialité, c'est la piscine creusée (fibre de verre, membrane armée soudée, projets
@@ -77,8 +77,10 @@ Demande de service offert : confirme qu'on le fait, puis propose la prochaine é
 
 Demande de prix de service : réponse type ci-dessus (devis / conseiller).
 
-Demande d'analyse d'eau : « Oui, on fait l'analyse d'eau gratuitement en magasin.
-Apportez un échantillon de votre eau et on vous conseille sur place. »
+Demande d'analyse d'eau : « Oui, on fait l'analyse d'eau gratuitement en magasin —
+apportez un échantillon de votre eau et on vous conseille sur place. On a aussi un outil
+sur notre site web, dans la section « Outils d'analyse d'eau », pour faire une analyse
+maison avec nos bandelettes d'analyse Barracuda, si vous préférez la faire de chez vous. »
 
 Demande hors-terre : « On se spécialise en creusée, mais on s'occupe aussi du hors-terre :
 vente, installation, entretien et réparation. Dites-moi ce que vous cherchez. »

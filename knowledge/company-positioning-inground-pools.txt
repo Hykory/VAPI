@@ -24,7 +24,7 @@
 - Travaux de béton : béton estampé, béton de tous genres, petits travaux d'excavation.
 - Produits d'entretien piscines et spas.
 - Analyse d'eau gratuite en magasin.
-- Application mobile gratuite Mes Bassins (analyse par bandelette via téléphone).
+- Outil d'analyse d'eau en ligne sur le site web (section « Outils d'analyse d'eau », avec nos bandelettes d'analyse Barracuda).
 - Tous les services se font sur soumission ou prise de rendez-vous.
 
 ## Nuance importante sur le hors-terre

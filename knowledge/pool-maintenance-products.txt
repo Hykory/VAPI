@@ -25,7 +25,7 @@
 - GRATUITE en magasin.
 - Le client apporte un échantillon d'eau (bouteille propre, environ 250 ml).
 - Toujours recommander l'analyse quand la situation dépend de la chimie de l'eau.
-- Plus précise que l'application Mes Bassins pour les cas complexes.
+- Plus précise que l'outil d'analyse d'eau en ligne pour les cas complexes.
 
 ## Approche CONSEIL avant produit
 - NE PAS recommander un produit immédiatement quand le client a un problème d'eau.

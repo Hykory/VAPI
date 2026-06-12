@@ -942,7 +942,7 @@ app.post("/search_shopify_products", async (req, res) => {
     // DISPONIBLES en premier (décision business).
     const qNorm = normalize(args.query || "");
     const clientNommeAutreMarque = OTHER_BRANDS.some(b => qNorm.includes(normalize(b)));
-    if (/filtr/.test(qNorm) && !searchArgs.vendor && !clientNommeAutreMarque) {
+    if (/filtr|filter/.test(qNorm) && !searchArgs.vendor && !clientNommeAutreMarque) {  // « filtr » (FR) + « filter » (EN : ne contient PAS « filtr »)
       finalList = await boostNirvanaFiltersFirst(finalList);
     }
 

@@ -760,7 +760,9 @@ function frBelow1000(n) {
   if (n < 100) return frBelow100(n);
   const h = Math.floor(n / 100), r = n % 100;
   const cent = h === 1 ? "cent" : FR_U[h] + " cent" + (r === 0 ? "s" : "");
-  return r === 0 ? cent : cent + " " + frBelow100(r);
+  // Pause « ... » entre la centaine et le reste : aide la voix turbo à dire les
+  // nombres composés (« quatre-vingt-dix-neuf ») d'un bloc, sans les hacher. (validé à l'oreille)
+  return r === 0 ? cent : cent + "... " + frBelow100(r);
 }
 function frNumber(n) {
   n = Math.floor(n);

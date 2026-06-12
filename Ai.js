@@ -742,6 +742,39 @@ function sanePrice(value) {
   return n;
 }
 
+// Convertit un nombre (0–9999) en mots français — pour faire dire les PRIX correctement
+// par la voix sans laisser le LLM épeler (Haiku se trompe parfois sur 70-99, ex.
+// « quatre cent vingt dix neuf » au lieu de « quatre cent quatre-vingt-dix-neuf »).
+const FR_U = ["zéro","un","deux","trois","quatre","cinq","six","sept","huit","neuf","dix","onze","douze","treize","quatorze","quinze","seize","dix-sept","dix-huit","dix-neuf"];
+const FR_T = ["","","vingt","trente","quarante","cinquante","soixante"];
+function frBelow100(n) {
+  if (n < 20) return FR_U[n];
+  if (n < 70) { const t = Math.floor(n / 10), u = n % 10; const w = FR_T[t]; if (u === 0) return w; if (u === 1) return w + " et un"; return w + "-" + FR_U[u]; }
+  if (n < 80) { if (n === 71) return "soixante et onze"; return "soixante-" + FR_U[n - 60]; }
+  if (n < 90) { const u = n - 80; return u === 0 ? "quatre-vingts" : "quatre-vingt-" + FR_U[u]; }
+  return "quatre-vingt-" + FR_U[n - 80];
+}
+function frBelow1000(n) {
+  if (n < 100) return frBelow100(n);
+  const h = Math.floor(n / 100), r = n % 100;
+  const cent = h === 1 ? "cent" : FR_U[h] + " cent" + (r === 0 ? "s" : "");
+  return r === 0 ? cent : cent + " " + frBelow100(r);
+}
+function frNumber(n) {
+  n = Math.floor(n);
+  if (n < 1000) return frBelow1000(n);
+  const th = Math.floor(n / 1000), r = n % 1000;
+  const mil = th === 1 ? "mille" : frBelow1000(th) + " mille";
+  return r === 0 ? mil : mil + " " + frBelow1000(r);
+}
+// Prix en lettres françaises : 499 → "quatre cent quatre-vingt-dix-neuf dollars".
+function priceToSpokenFr(amount) {
+  if (amount == null || !isFinite(amount)) return null;
+  const d = Math.floor(amount), c = Math.round((amount - d) * 100);
+  const dp = frNumber(d) + " dollar" + (d > 1 ? "s" : "");
+  return c === 0 ? dp : dp + " et " + frBelow100(c);
+}
+
 function formatProduct(p) {
   const priceMin = sanePrice(p.priceRangeV2?.minVariantPrice?.amount);
   const priceMax = sanePrice(p.priceRangeV2?.maxVariantPrice?.amount);
@@ -758,6 +791,7 @@ function formatProduct(p) {
     image: p.featuredImage?.url || null,
     price_min: priceMin,
     price_max: priceMax,
+    price_spoken: priceToSpokenFr(priceMin),   // prix en lettres FR, à dire tel quel (voix)
     // true = prix invalide en base (99999, 0, manquant) → NE PAS l'annoncer.
     price_unavailable: priceMin === null,
     currency: p.priceRangeV2?.minVariantPrice?.currencyCode || "CAD",
@@ -775,6 +809,7 @@ function formatProduct(p) {
         sku: v.node.sku,
         price: vp,                       // null si bidon, au lieu de 99999
         price_unavailable: vp === null,
+        price_spoken: priceToSpokenFr(vp),  // prix en lettres FR, à dire tel quel (voix)
         stock: v.node.inventoryQuantity,
         available: v.node.availableForSale,
         incoming,                        // quantité en commande pas encore reçue

@@ -742,16 +742,38 @@ function sanePrice(value) {
   return n;
 }
 
-// Prix prononçable pour la voix : on donne les CHIFFRES (ex. « 499 dollars »), pas les
-// mots épelés. ElevenLabs prononce les chiffres de façon FLUIDE et CONNECTÉE
-// (« quatre cent quatre-vingt-dix-neuf dollars »), alors qu'il lit les mots écrits
-// « quatre-vingt-dix-neuf » de façon séparée (token par token = sonne mal). Pas de
-// virgule (lue « virgule ») : les cents sont mis après « et ».
+// Prix en LETTRES françaises — ⚠️ obligatoire : ElevenLabs lit les CHIFFRES en ANGLAIS
+// même sur une voix française (« 499 » → « four hundred ninety-nine »), comme pour les
+// dates (« deux mille vingt-six » et pas « 2026 »). On épelle donc le prix en français.
+// On délègue l'épellation au serveur (déterministe et correcte) car Haiku se trompe
+// parfois (« quatre cent vingt dix neuf » au lieu de « quatre cent quatre-vingt-dix-neuf »).
+const FR_U = ["zéro","un","deux","trois","quatre","cinq","six","sept","huit","neuf","dix","onze","douze","treize","quatorze","quinze","seize","dix-sept","dix-huit","dix-neuf"];
+const FR_T = ["","","vingt","trente","quarante","cinquante","soixante"];
+function frBelow100(n) {
+  if (n < 20) return FR_U[n];
+  if (n < 70) { const t = Math.floor(n / 10), u = n % 10; const w = FR_T[t]; if (u === 0) return w; if (u === 1) return w + " et un"; return w + "-" + FR_U[u]; }
+  if (n < 80) { if (n === 71) return "soixante et onze"; return "soixante-" + FR_U[n - 60]; }
+  if (n < 90) { const u = n - 80; return u === 0 ? "quatre-vingts" : "quatre-vingt-" + FR_U[u]; }
+  return "quatre-vingt-" + FR_U[n - 80];
+}
+function frBelow1000(n) {
+  if (n < 100) return frBelow100(n);
+  const h = Math.floor(n / 100), r = n % 100;
+  const cent = h === 1 ? "cent" : FR_U[h] + " cent" + (r === 0 ? "s" : "");
+  return r === 0 ? cent : cent + " " + frBelow100(r);
+}
+function frNumber(n) {
+  n = Math.floor(n);
+  if (n < 1000) return frBelow1000(n);
+  const th = Math.floor(n / 1000), r = n % 1000;
+  const mil = th === 1 ? "mille" : frBelow1000(th) + " mille";
+  return r === 0 ? mil : mil + " " + frBelow1000(r);
+}
 function priceToSpokenFr(amount) {
   if (amount == null || !isFinite(amount)) return null;
   const d = Math.floor(amount), c = Math.round((amount - d) * 100);
-  const unit = d === 1 ? "dollar" : "dollars";
-  return c === 0 ? `${d} ${unit}` : `${d} ${unit} et ${c}`;
+  const dp = frNumber(d) + " dollar" + (d > 1 ? "s" : "");
+  return c === 0 ? dp : dp + " et " + frBelow100(c);
 }
 
 function formatProduct(p) {

@@ -1,0 +1,83 @@
+# Conseils & guides (tirés du blog Barracuda)
+
+Notes de référence condensées à partir des articles de blog du site piscinesbarracuda.com.
+Sert à répondre aux questions GÉNÉRALES et ÉDUCATIVES des clients (chimie, équipement,
+réglementation). ⚠️ Pour les CIBLES chimiques exactes à recommander lors d'une analyse,
+suis les règles de l'application / du moteur d'analyse (elles priment) ; ces notes donnent
+surtout le CONTEXTE et les EXPLICATIONS à vulgariser au client.
+
+## Chlore ou brome — quel désinfectant choisir
+- CHLORE : très efficace (bactéries, virus, algues), action rapide, moins cher, plusieurs
+  formes (granules, pastilles, liquide). Sensible au pH, odeur marquée, peut irriter, moins
+  stable en eau chaude. Idéal pour piscines extérieures avec entretien régulier.
+- BROME : stable en eau chaude, efficace même si pH variable, odeur douce, plus doux pour
+  peau/yeux. Plus cher, se dégrade aux UV, moins efficace sur certaines algues extérieures.
+  Idéal pour spas et piscines intérieures.
+- Chlore et brome sont les deux désinfectants approuvés par Santé Canada (résidentiel).
+
+## pH et alcalinité (la base d'une eau équilibrée)
+- pH : échelle 0–14 (logarithmique). Cible piscine/spa : 7,2 à 7,6. Une variation d'une
+  unité = changement majeur (10× plus acide ou alcalin).
+- Alcalinité totale : cible 80 à 120 ppm. C'est le « tampon » qui stabilise le pH.
+  Trop basse = pH instable ; trop haute = pH dur à corriger. Ajuster l'alcalinité AVANT le pH.
+- Déséquilibre → irritation, eau trouble, corrosion (pH bas), dépôts calcaires (pH haut),
+  désinfectant moins efficace.
+
+## Indice de Langelier (LSI) — l'équilibre réel de l'eau
+- Mesure l'équilibre global entre pH, alcalinité, dureté calcique et température.
+- Négatif = eau corrosive (dissout le calcium, abîme l'équipement) ; ≈ 0 = équilibrée
+  (idéal) ; positif = eau entartrante (dépôts, eau trouble).
+- Un pH correct seul ne garantit pas l'équilibre : 2 piscines au même pH peuvent réagir
+  très différemment. Surveiller aussi la dureté calcique et la température.
+
+## Monopersulfate (oxygène actif) — choc « sans chlore »
+- Oxydant puissant, PAS un désinfectant. Ne contient pas de chlore, n'augmente pas le
+  chlore libre.
+- Oxyde les contaminants organiques (sueur, huiles, cosmétiques), améliore la clarté,
+  réduit les odeurs, soutient l'efficacité du chlore/brome. Peu d'impact sur pH/alcalinité.
+- Idéal pour les spas et après une baignade intense. NE remplace PAS le chlore/brome
+  (aucune protection résiduelle), n'est pas curatif pour une eau verte.
+
+## Borates (sodium borate)
+- Stabilisateur avancé qui sert de tampon de pH SUPPLÉMENTAIRE : réduit les variations
+  rapides de pH, rend l'eau plus douce, limite indirectement les algues.
+- Compatible chlore, brome et systèmes au sel ; généralement ajouté une fois par saison.
+- Ne désinfecte PAS et ne remplace pas les désinfectants. (Cible visée par l'outil
+  d'analyse : ~30–50 ppm.)
+
+## Stabilisant (acide cyanurique / CYA)
+- Rôle : protège le chlore des rayons UV (prolonge son efficacité). Concerne le chlore,
+  PAS le brome. À éviter dans les spas.
+- Cible : piscine au chlore 30–50 ppm ; piscine au sel 60–80 ppm acceptable ; > 100 ppm
+  problématique.
+- Trop élevé = « blocage du chlore » (chlorine lock) : le chlore devient inactif malgré un
+  taux normal, eau trouble, algues persistantes. À 100 ppm il faudrait ~7,5 ppm de chlore
+  libre en permanence (irréaliste).
+- S'accumule (ne s'évapore pas ; les pastilles de trichlore en contiennent). Seule vraie
+  solution : dilution par vidange partielle (~50 % du volume pour réduire de moitié) —
+  aucun produit fiable pour l'éliminer. Prévention : tester chaque mois, alterner les
+  sources de chlore.
+
+## Thermopompe vs chauffe-eau au gaz (au Québec)
+- Thermopompe : ~60–70 % moins cher à opérer au Québec (électricité abondante/bon marché),
+  installation simple, entretien minimal, optimale de mai à septembre (au-dessus de ~10 °C),
+  maintient une température stable. Choix recommandé pour un usage résidentiel régulier.
+- Chauffe-eau au gaz : chauffe vite, mieux pour un usage OCCASIONNEL ; nécessite alimentation
+  gaz, permis, ventilation ; émissions GES.
+
+## Piscines en fibre de verre — avantages / inconvénients
+- Avantages : installation rapide (préfabriquée), surface lisse non poreuse (moins d'algues),
+  bonne durabilité au gel/dégel, finitions variées, entretien simplifié vs béton.
+- Inconvénients : coût initial plus élevé que la toile vinyle, choix de tailles/formes limité
+  (moulées), contraintes de livraison (pièce unique).
+- ⚠️ Le DRAINAGE est critique : une accumulation d'eau (nappe phréatique, sol argileux) crée
+  une pression qui peut déplacer la structure. La préparation du terrain = durabilité.
+
+## Réglementation piscine — Outaouais (Québec vs Ontario)
+- Distances : Québec (Gatineau) min. 1 m de la limite de propriété ; Ontario (Ottawa) le
+  béton à ~1,2 m des limites (repousse la piscine à ~2 m).
+- Sécurité : Québec exige une clôture/enclos séparant la piscine de la maison ; Ontario a des
+  normes différentes (vérifier la municipalité).
+- Permis : permis municipaux requis des deux côtés ; en Ontario, inspection d'un électricien
+  avant le remplissage ou la coulée de béton.
+- Toujours vérifier les exigences locales spécifiques AVANT de commencer.

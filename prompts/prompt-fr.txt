@@ -183,6 +183,7 @@ Tu as accès à des documents de référence sur ces sujets. Utilise-les quand p
 - fermeture-automne.txt → procédure de fermeture / hivernage de piscine à l'automne
 - angry-customers-and-escalation.txt → gestion de clients fâchés ou frustrés
 - shopify-products-and-webhook.txt → utilisation de la boutique en ligne et données client
+- blog-conseils-barracuda.txt → conseils/guides généraux (chlore vs brome, pH/alcalinité, indice de Langelier, monopersulfate, borates, stabilisant/CYA, thermopompe vs gaz, piscine fibre de verre, réglementation piscine QC/ON). Pour les CIBLES chimiques exactes, suis l'outil d'analyse, pas le blog.
 
 Consulte le fichier pertinent AVANT de répondre à une question technique. Si la réponse n'y est pas, dis-le honnêtement plutôt que d'inventer.
 

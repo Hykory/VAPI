@@ -592,6 +592,11 @@ const PRODUCTS_GQL = `
                 price
                 inventoryQuantity
                 availableForSale
+                inventoryItem {
+                  inventoryLevels(first: 3) {
+                    edges { node { quantities(names: ["incoming"]) { name quantity } } }
+                  }
+                }
               }
             }
           }
@@ -755,6 +760,12 @@ function formatProduct(p) {
     currency: p.priceRangeV2?.minVariantPrice?.currencyCode || "CAD",
     variants: (p.variants?.edges || []).map(v => {
       const vp = sanePrice(v.node.price);
+      // Stock ENTRANT (commandé mais pas encore reçu) : somme du "incoming" sur les emplacements.
+      const incoming = (v.node.inventoryItem?.inventoryLevels?.edges || [])
+        .reduce((sum, lvl) => {
+          const q = (lvl.node.quantities || []).find(x => x.name === "incoming");
+          return sum + (q && typeof q.quantity === "number" ? q.quantity : 0);
+        }, 0);
       return {
         id: v.node.id,
         title: v.node.title,
@@ -763,6 +774,7 @@ function formatProduct(p) {
         price_unavailable: vp === null,
         stock: v.node.inventoryQuantity,
         available: v.node.availableForSale,
+        incoming,                        // quantité en commande pas encore reçue
       };
     }),
   };

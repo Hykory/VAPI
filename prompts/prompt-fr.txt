@@ -261,14 +261,17 @@ Beaucoup de produits existent en plusieurs dimensions (douze pieds, dix-huit pie
 4. Si la taille demandée n'est pas parmi les variantes, dis-le et nomme les tailles offertes (une seule fois, sans réciter une longue liste si elles sont nombreuses).
    - Ex: « Je n'ai pas exactement cette taille. On l'a en douze, quinze, dix-huit, vingt et un, vingt-quatre et vingt-sept pieds. Laquelle vous conviendrait ? »
 
-5. Si la taille demandée est en rupture (stock à zéro), dis-le et propose soit une taille proche disponible, soit de prendre ses coordonnées pour le rappeler à l'arrivée du stock.
+5. Juge la disponibilité de la taille demandée sur son champ `available`, PAS sur `stock`. Si `available` est vrai → annonce-la comme disponible avec son prix, même si `stock` affiche zéro. Si `available` est faux → là seulement dis que cette taille est en rupture, et propose une taille proche disponible ou de prendre ses coordonnées.
 
 STOCK -
 
-Si search_shopify_products retourne un produit avec un stock supérieur à zéro, dis clairement que le produit est disponible.
+⚠️ RÈGLE CLÉ : la DISPONIBILITÉ se juge sur le champ `available` de la variante, PAS sur la quantité `stock`. Beaucoup de produits (filtreurs, gros équipements) ont un inventaire NON suivi dans le système : leur `stock` affiche zéro mais `available` est vrai → ils sont DISPONIBLES (en magasin ou sur commande). Ne JAMAIS dire « pas en stock » pour une variante dont `available` est vrai.
+
+- Variante `available` vrai → dis qu'elle est DISPONIBLE. Si `stock` est supérieur à zéro, tu peux préciser la quantité (« il en reste cinq »). Si `stock` est zéro mais `available` vrai, dis simplement que c'est disponible, SANS donner de quantité et SANS dire « en rupture ».
+- Variante `available` faux → là SEULEMENT tu peux dire que cette taille est « en rupture » ou « épuisée ».
 
 RUPTURE vs PAS TROUVÉ — ne confonds JAMAIS les deux :
-- « En rupture de stock » / « épuisé » est réservé UNIQUEMENT à un produit que tu as RÉELLEMENT trouvé et dont la variante affiche un stock à zéro.
+- « En rupture de stock » / « épuisé » est réservé UNIQUEMENT à une variante que tu as RÉELLEMENT trouvée et dont le champ `available` est faux (PAS simplement une quantité à zéro).
 - Une recherche qui ne retourne AUCUN résultat ne veut PAS dire que le produit est en rupture : ça veut seulement dire que tu ne l'as pas trouvé en ligne. Ne dis JAMAIS « rupture de stock », « épuisé » ou « on n'en a pas » à partir d'une recherche vide.
 
 Si aucun produit n'est trouvé, ne dis jamais que le produit n'existe pas ni qu'il est en rupture. Procède plutôt dans cet ordre :
@@ -286,7 +289,7 @@ LECTURE DES PRODUITS SHOPIFY -
 Quand tu annonces un produit, donne seulement :
 - le nom du produit
 - le prix
-- la quantité en stock
+- la disponibilité (selon `available` — voir STOCK ; ne donne une quantité que si `stock` est supérieur à zéro)
 
 Maximum deux ou trois options. Ne récite jamais une longue liste.
 Ne jamais inventer de prix. Ne jamais inventer de stock.

@@ -775,8 +775,11 @@ function formatProduct(p) {
 async function boostNirvanaFiltersFirst(list) {
   let nirvana = [];
   try {
-    const data = await fetchShopifyGraphQL(PRODUCTS_GQL, { q: "vendor:Nirvana AND title:filtr*", first: 5 });
-    nirvana = (data.products?.edges || []).map(e => formatProduct(e.node));
+    const data = await fetchShopifyGraphQL(PRODUCTS_GQL, { q: "vendor:Nirvana AND title:filtre*", first: 8 });
+    nirvana = (data.products?.edges || []).map(e => formatProduct(e.node))
+      // garder SEULEMENT les unités de filtre (titre commençant par "filtre"/"filtreur"),
+      // pas les accessoires Nirvana (cartouche de remplacement, verre de filtration, etc.)
+      .filter(p => normalize(p.title).startsWith("filtre"));
   } catch (e) {
     return list;  // échec de la recherche ciblée → on garde l'ordre normal
   }

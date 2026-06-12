@@ -768,6 +768,15 @@ function formatProduct(p) {
   };
 }
 
+// Marques (hors Nirvana) : si le client en nomme une dans sa demande, on NE force
+// PAS Nirvana en tête (il a une marque précise en tête). Inclut variantes courantes.
+const OTHER_BRANDS = [
+  "helios", "soprema", "hayward", "pentair", "jandy", "zodiac", "raypak", "intex",
+  "bestway", "bayrol", "bioguard", "hydropool", "sundance", "bullfrog",
+  "starite", "sta rite", "aqualeader", "aqua leader", "variflo", "vari flo",
+  "jacuzzi", "carvin", "waterway", "hydroquip", "balboa", "gecko",
+];
+
 // Préférence marque pour les FILTRES (décision business) : remonter les filtres
 // Nirvana DISPONIBLES en tête des résultats. Fait une recherche ciblée Nirvana
 // (car les filtres Nirvana ne remontent pas dans une recherche "filtre" générique),
@@ -867,9 +876,12 @@ app.post("/search_shopify_products", async (req, res) => {
     const { products, level, finalQuery, widened, debugTrace } = await cascadeSearch(searchArgs);
     let finalList = products.map(formatProduct);
 
-    // Préférence marque : pour une recherche de FILTRE sans marque imposée par le
-    // client, remonter les filtres Nirvana DISPONIBLES en premier (décision business).
-    if (/filtr/.test(normalize(args.query || "")) && !searchArgs.vendor) {
+    // Préférence marque : pour une recherche de FILTRE sans marque imposée — ni via le
+    // filtre vendor, ni nommée dans la requête — remonter les filtres Nirvana
+    // DISPONIBLES en premier (décision business).
+    const qNorm = normalize(args.query || "");
+    const clientNommeAutreMarque = OTHER_BRANDS.some(b => qNorm.includes(normalize(b)));
+    if (/filtr/.test(qNorm) && !searchArgs.vendor && !clientNommeAutreMarque) {
       finalList = await boostNirvanaFiltersFirst(finalList);
     }
 

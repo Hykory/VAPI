@@ -1233,7 +1233,8 @@ FORMAT PARLÉ — tu parles au téléphone, tu n'écris pas :
     system: systemParts.join("\n\n"),
     messages,
     tools,
-    temperature: typeof body.temperature === "number" ? body.temperature : CUSTOM_LLM_TEMPERATURE,
+    // Clamp à 1 : OpenAI accepte 0–2 mais Anthropic refuse > 1 (HTTP 400 → custom-llm-llm-failed).
+    temperature: Math.min(1, typeof body.temperature === "number" ? body.temperature : CUSTOM_LLM_TEMPERATURE),
     max_tokens: body.max_tokens || CUSTOM_LLM_MAX_TOKENS,
   };
 }

@@ -1324,7 +1324,7 @@ app.post("/chat/completions", async (req, res) => {
   if (!upstream.ok) {
     const text = await upstream.text();
     console.error(`[custom-llm] Anthropic HTTP ${upstream.status}: ${text.slice(0, 500)}`);
-    return res.status(502).json({ error: { message: `Anthropic HTTP ${upstream.status}`, detail: text.slice(0, 400) } });
+    return res.status(502).json({ error: { message: `Anthropic HTTP ${upstream.status}` } });
   }
 
   const chatId = "chatcmpl-" + Date.now();

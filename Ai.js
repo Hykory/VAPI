@@ -546,7 +546,10 @@ function buildShopifyQuery({ tokens, vendor, productType, tags, inStockOnly, lev
       const tagPart = tags.map(t => `tag:"${esc(t)}"`).join(" AND ");
       parts.push(`(${tagPart})`);
     }
-    if (inStockOnly) parts.push(`inventory_total:>0`);
+    // NOTE: in_stock_only n'est PLUS filtré ici via inventory_total:>0 — ça excluait
+    // l'inventaire NON suivi mais vendable (ex. filtreur Hayward: stock 0, available true).
+    // Le filtre de disponibilité se fait APRÈS le fetch, sur availableForSale
+    // (voir endpoint /search_shopify_products).
   }
 
   // On exclut TOUJOURS les produits en brouillon ou archivés
@@ -887,6 +890,16 @@ app.post("/search_shopify_products", async (req, res) => {
     // ⭐ Lancement de la cascade
     const { products, level, finalQuery, widened, debugTrace } = await cascadeSearch(searchArgs);
     let finalList = products.map(formatProduct);
+
+    // in_stock_only : garder les produits réellement VENDABLES (availableForSale) ou
+    // avec quantité suivie > 0 — au lieu de l'ancien filtre inventory_total:>0 qui
+    // excluait l'inventaire non suivi mais disponible.
+    if (searchArgs.inStockOnly) {
+      finalList = finalList.filter(p =>
+        (typeof p.total_inventory === "number" && p.total_inventory > 0) ||
+        (p.variants || []).some(v => v.available)
+      );
+    }
 
     // Préférence marque : pour une recherche de FILTRE sans marque imposée — ni via le
     // filtre vendor, ni nommée dans la requête — remonter les filtres Nirvana

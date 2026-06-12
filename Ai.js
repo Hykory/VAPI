@@ -768,6 +768,25 @@ function formatProduct(p) {
   };
 }
 
+// Préférence marque pour les FILTRES (décision business) : remonter les filtres
+// Nirvana DISPONIBLES en tête des résultats. Fait une recherche ciblée Nirvana
+// (car les filtres Nirvana ne remontent pas dans une recherche "filtre" générique),
+// garde seulement ceux réellement vendables (availableForSale), et les préfixe.
+async function boostNirvanaFiltersFirst(list) {
+  let nirvana = [];
+  try {
+    const data = await fetchShopifyGraphQL(PRODUCTS_GQL, { q: "vendor:Nirvana AND title:filtr*", first: 5 });
+    nirvana = (data.products?.edges || []).map(e => formatProduct(e.node));
+  } catch (e) {
+    return list;  // échec de la recherche ciblée → on garde l'ordre normal
+  }
+  const dispo = nirvana.filter(p => (p.variants || []).some(v => v.available));
+  if (dispo.length === 0) return list;            // aucun Nirvana dispo → rien à prioriser
+  const ids = new Set(dispo.map(p => p.id));
+  const rest = list.filter(p => !ids.has(p.id));  // évite les doublons
+  return [...dispo, ...rest];
+}
+
 // Génère un message en français pour expliquer à l'IA CE QU'ELLE VIENT DE TROUVER.
 // L'IA va lire ce message et l'utiliser pour formuler sa réponse vocale au client.
 function buildMessage({ count, level, widened }) {
@@ -843,15 +862,22 @@ app.post("/search_shopify_products", async (req, res) => {
 
     // ⭐ Lancement de la cascade
     const { products, level, finalQuery, widened, debugTrace } = await cascadeSearch(searchArgs);
-    const formatted = products.map(formatProduct);
+    let finalList = products.map(formatProduct);
+
+    // Préférence marque : pour une recherche de FILTRE sans marque imposée par le
+    // client, remonter les filtres Nirvana DISPONIBLES en premier (décision business).
+    if (/filtr/.test(normalize(args.query || "")) && !searchArgs.vendor) {
+      finalList = await boostNirvanaFiltersFirst(finalList);
+    }
+
     const ms = Date.now() - start;
 
-    console.log(`[search_shopify_products] level=${level} count=${formatted.length} ms=${ms}ms query="${finalQuery}"`);
+    console.log(`[search_shopify_products] level=${level} count=${finalList.length} ms=${ms}ms query="${finalQuery}"`);
 
     // Enregistre l'événement pour les stats du coach hebdo
     logEvent("shopify_product_search", {
       query: args.query || "",
-      results_count: formatted.length,
+      results_count: finalList.length,
       cascade_level: level,
       widened,
       ms,
@@ -859,8 +885,8 @@ app.post("/search_shopify_products", async (req, res) => {
 
     // Réponse à l'IA
     const response = {
-      count: formatted.length,
-      products: formatted,
+      count: finalList.length,
+      products: finalList,
       search_strategy_used: level,
       widened,
       original_query: args.query || null,
@@ -872,11 +898,11 @@ app.post("/search_shopify_products", async (req, res) => {
         max_price: searchArgs.maxPrice,
         in_stock_only: searchArgs.inStockOnly,
       },
-      message: buildMessage({ count: formatted.length, level, widened }),
+      message: buildMessage({ count: finalList.length, level, widened }),
     };
 
     // Si 0 résultat, on inclut la trace de toutes les tentatives pour pouvoir débuger
-    if (formatted.length === 0) {
+    if (finalList.length === 0) {
       response.debug = debugTrace;
     }
 

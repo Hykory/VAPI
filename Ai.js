@@ -358,10 +358,10 @@ const SYNONYMS = {
   "cartouche":   ["cartridge", "element filtrant"],
   "sable":       ["sand", "sable filtrant"],
   "verre":       ["glass media", "verre filtrant"],
-  "chauffage":   ["heater", "rechauffeur", "thermopompe", "heat pump", "chauffe eau"],
+  "chauffage":   ["heater", "rechauffeur", "thermopompe", "heat pump", "chauffe eau", "chauffe-eau", "pompe a chaleur"],
   "echangeur":   ["exchanger", "heat exchanger"],
   "minuterie":   ["timer", "horloge", "controle"],
-  "ecumoir":     ["skimmer", "ecumeur"],
+  "ecumoir":     ["skimmer", "ecumeur", "ecumoire", "ecumeware"],
   "buse":        ["jet", "return", "refoulement", "eyeball"],
   "valve":       ["vanne", "valve multivoie", "multivoies", "multiport", "soupape", "variflo", "vari flo", "veriflow", "spring valve"],
   "ressort":     ["spring", "spring valve", "ressort de soupape"],
@@ -410,6 +410,9 @@ const SYNONYMS = {
   "spa":         ["hot tub", "jacuzzi", "tourbillon", "bain a remous", "tub", "hydropool", "sundance", "bullfrog", "hydromassage"],
   "filtre spa":  ["spa filter", "filtre jacuzzi"],
   "clavier spa": ["topside", "topside control", "control pad", "keypad", "clavier de controle"],
+  // « clavier » seul (token unique) : la clé multi-mots « clavier spa » ne matche pas
+  // le mot « clavier » employé seul au téléphone (recherche clavier de contrôle spa Balboa).
+  "clavier":     ["topside", "topside control", "keypad", "clavier de controle", "clavier spa", "pad"],
   "element chauffant": ["heating element", "heater element", "element chauffant spa"],
 
   // --- Piscine générique ---

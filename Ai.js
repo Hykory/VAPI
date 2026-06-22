@@ -351,9 +351,13 @@ const SYNONYMS = {
   "oxygene":     ["oxygen", "peroxyde", "shock"],
   "choc":        ["shock", "superchloration", "super chlore"],
   "smartchoc":   ["smart shock", "smart choc", "smartshock", "bioguard smart shock"],
+  // Ajout coach 2026-06 : le produit BioGuard s'écrit « Balance Pak » ; clients disent « pack/pac ».
+  "balance pak": ["balance pack", "balance pac", "balancepak", "balancepac", "balance pak 100", "balance pak 200", "balance pak 300"],
 
   // --- Équipement ---
   "pompe":       ["pump", "circulateur", "moteur"],
+  // Ajout coach 2026-06 : « pompe silence » entendu pour une pompe silencieuse.
+  "silencieuse": ["silence", "silent", "silencieux", "pompe silence", "pompe silencieuse"],
   "filtre":      ["filter", "filtration", "filtreur"],
   "cartouche":   ["cartridge", "element filtrant"],
   "sable":       ["sand", "sable filtrant"],
@@ -396,6 +400,8 @@ const SYNONYMS = {
   "hydropool":   [],
   "sundance":    [],
   "bullfrog":    [],
+  // Ajout coach 2026-06 : marque de pompe « Davey » souvent transcrite « Davy ».
+  "davey":       ["davy", "davi", "davie"],
   "starite":     ["sta rite", "sta-rite", "staright"],
   "aqualeader":  ["aqua leader", "aquatour", "aqua tour", "aquatours"],
   "variflo":     ["vari flo", "vari-flo", "veriflow", "veri flow"],
@@ -414,6 +420,9 @@ const SYNONYMS = {
   // le mot « clavier » employé seul au téléphone (recherche clavier de contrôle spa Balboa).
   "clavier":     ["topside", "topside control", "keypad", "clavier de controle", "clavier spa", "pad"],
   "element chauffant": ["heating element", "heater element", "element chauffant spa"],
+  // Ajouts coach 2026-06 : coussins/appuis-tête de spa + modèle Hydropool Serenity 6800.
+  "appuie-tete": ["appui tete", "appui-tete", "repose tete", "coussin", "coussins", "coussin spa", "coussins spa", "headrest", "head rest", "oreiller spa"],
+  "serenity":    ["serenity 6800", "serenity6800", "hydropool serenity"],
 
   // --- Piscine générique ---
   "piscine":     ["pool", "swimming pool", "bassin"],

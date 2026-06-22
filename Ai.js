@@ -103,6 +103,12 @@ const ANALYSIS_TIMEZONE = (process.env.ANALYSIS_TIMEZONE || "America/Toronto").t
 const RESEND_API_KEY_VOICEMAIL = process.env.RESEND_API_KEY_VOICEMAIL; // clé du compte Resend info@
 const VOICEMAIL_EMAIL_TO = process.env.VOICEMAIL_EMAIL_TO || "info@piscinesbarracuda.com";
 const VOICEMAIL_EMAIL_FROM = process.env.VOICEMAIL_EMAIL_FROM || "Barracuda Boite Vocale <onboarding@resend.dev>";
+
+// Leads : envoyés à info@piscinesbarracuda.com via le compte Resend info@
+// (le compte coach RESEND_API_KEY est en free tier et ne peut écrire qu'à Nathan).
+// Le rapport hebdo du coach reste sur REPORT_EMAIL_TO (Nathan), inchangé.
+const LEAD_EMAIL_TO = process.env.LEAD_EMAIL_TO || VOICEMAIL_EMAIL_TO;       // = info@piscinesbarracuda.com
+const LEAD_EMAIL_FROM = process.env.LEAD_EMAIL_FROM || "Barracuda Leads <onboarding@resend.dev>";
 // Creds Twilio OPTIONNELS : seulement pour télécharger l'audio et le joindre au courriel.
 // Absents → le courriel contient quand même le lien d'écoute (dégradation propre).
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
@@ -1026,8 +1032,12 @@ app.post("/search_shopify_products", async (req, res) => {
 // email / channel (optionnels). Déclenchement piloté côté prompt VAPI.
 
 async function sendLeadEmail(lead) {
-  if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY missing");
-  if (!REPORT_EMAIL_TO) throw new Error("REPORT_EMAIL_TO missing");
+  // Chaque compte Resend (free tier) ne peut écrire qu'à SA propre adresse :
+  // info@ via le compte info@, Nathan via le compte coach. On envoie donc une
+  // copie par chacun. Au moins un compte doit être configuré.
+  const canInfo = !!(RESEND_API_KEY_VOICEMAIL && LEAD_EMAIL_TO);
+  const canNathan = !!(RESEND_API_KEY && REPORT_EMAIL_TO);
+  if (!canInfo && !canNathan) throw new Error("Aucun compte Resend configuré pour l'envoi des leads");
 
   const nowHuman = new Date().toLocaleString("fr-CA", { timeZone: ANALYSIS_TIMEZONE });
   const row = (label, val) =>
@@ -1052,23 +1062,32 @@ async function sendLeadEmail(lead) {
       </p>
     </div>`;
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: REPORT_EMAIL_FROM,
-      to: [REPORT_EMAIL_TO],
-      subject: `🎯 Nouveau lead — ${lead.name}${lead.project_type ? " (" + lead.project_type + ")" : ""}`,
-      html,
-    }),
-  });
+  const subject = `🎯 Nouveau lead — ${lead.name}${lead.project_type ? " (" + lead.project_type + ")" : ""}`;
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Resend API HTTP ${response.status}: ${text}`);
+  // Envoie une copie du lead via un compte Resend donné, à un destinataire donné.
+  async function postLead(apiKey, from, to) {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to: [to], subject, html }),
+    });
+    if (!r.ok) throw new Error(`Resend HTTP ${r.status}: ${await r.text()}`);
+  }
+
+  // Destinataires : info@ (compte info@) + copie à Nathan (compte coach).
+  const sends = [];
+  if (canInfo) sends.push({ label: LEAD_EMAIL_TO, p: postLead(RESEND_API_KEY_VOICEMAIL, LEAD_EMAIL_FROM, LEAD_EMAIL_TO) });
+  if (canNathan) sends.push({ label: REPORT_EMAIL_TO, p: postLead(RESEND_API_KEY, REPORT_EMAIL_FROM, REPORT_EMAIL_TO) });
+
+  const results = await Promise.allSettled(sends.map((s) => s.p));
+  results.forEach((r, i) => {
+    if (r.status === "rejected") {
+      console.error(`[capture_lead] envoi échoué (${sends[i].label}):`, r.reason?.message || r.reason);
+    }
+  });
+  // Échec seulement si AUCUNE copie n'est partie (sinon le lead a bien été notifié).
+  if (results.every((r) => r.status === "rejected")) {
+    throw new Error("Tous les envois de lead ont échoué: " + results.map((r) => r.reason?.message || r.reason).join("; "));
   }
 }
 

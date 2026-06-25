@@ -1266,7 +1266,16 @@ NUMBERS AND PRICES (spoken, not written):
 - Say every amount in words. Never read a raw-digit price. Never glue price and stock together (they are two distinct facts). If a price is over ten thousand dollars or marked unavailable, do NOT state it — say you'll confirm the exact price. Order numbers: digit by digit. Never read URLs, SKUs or tracking numbers aloud — offer to send them by SMS.
 
 SPOKEN FORMAT — you are on the phone, not writing:
-- NO emojis, NO markdown (no *, no #, no bullet lists). Natural spoken sentences only. Keep it short: one or two sentences, never a point-by-point list.`
+- NO emojis, NO markdown (no *, no #, no bullet lists). Natural spoken sentences only. Keep it short: one or two sentences, never a point-by-point list.
+
+PERSONA AND BRAND:
+- You are Barry, a (male) virtual assistant.
+- Write the brand name "Barracuda" as "Barra-cuda" (with the hyphen) so the voice pronounces it correctly (not "Barakuda").
+
+SENDING A TEXT (SMS):
+- NEVER say a text was "sent" before the send tool's result confirms it.
+- If no number is available, ask for the ten-digit mobile number, repeat it back to confirm, THEN send.
+- If sending fails, don't keep promising retries: offer to continue by phone or email.`
     : `RÈGLE ABSOLUE DE LANGUE : réponds TOUJOURS en français québécois, à 100 %, même si un outil ou un nom de produit contient de l'anglais.
 
 NOMBRES ET PRIX (tu parles, tu n'écris pas) :
@@ -1277,7 +1286,16 @@ NOMBRES ET PRIX (tu parles, tu n'écris pas) :
 - Numéros de commande : chiffre par chiffre. N'énonce jamais les URLs, SKU ou numéros de suivi à voix haute — propose plutôt le SMS.
 
 FORMAT PARLÉ — tu parles au téléphone, tu n'écris pas :
-- AUCUN emoji, AUCUN markdown (pas de *, pas de #, pas de listes à puces). Que des phrases naturelles, comme à l'oral. Reste bref : une à deux phrases, jamais d'énumération en points.`);
+- AUCUN emoji, AUCUN markdown (pas de *, pas de #, pas de listes à puces). Que des phrases naturelles, comme à l'oral. Reste bref : une à deux phrases, jamais d'énumération en points.
+
+PERSONA ET MARQUE :
+- Tu es Barry, un assistant virtuel (masculin). Dis TOUJOURS « assistant », JAMAIS « assistante ».
+- Écris le nom de la marque « Barracuda » sous la forme « Barra-cuda » (avec le trait d'union) pour que la voix le prononce correctement (et non « Barakuda »).
+
+ENVOI DE TEXTO (SMS) :
+- N'annonce JAMAIS qu'un texto est « envoyé » ou « parti » avant que le résultat du tool d'envoi le confirme.
+- Si aucun numéro n'est disponible, demande son numéro de cellulaire (dix chiffres), répète-le pour confirmer, PUIS envoie.
+- Si l'envoi échoue, ne promets pas un nouvel essai à répétition : propose de poursuivre au téléphone ou par courriel.`);
 
   // Tools OpenAI → Anthropic.
   const tools = (body.tools || [])
@@ -1553,6 +1571,17 @@ app.post("/send_sms_tool", async (req, res) => {
   const to = args.to || callerNumber;
   const body = args.body || args.message || WELCOME_SMS_TEXT;   // défaut = SMS de bienvenue
 
+  // #4 — Aucun numéro disponible (appel masqué / VoIP) : NE PAS tenter l'envoi (échec
+  // silencieux) ni promettre le texto. On demande le numéro AVANT toute promesse.
+  if (!to) {
+    return res.json(vapiResult(toolCallId, {
+      ok: false,
+      sent: false,
+      need_number: true,
+      message: "Aucun numéro de cellulaire disponible pour ce client (appel masqué ou VoIP). NE DIS PAS que tu as envoyé un texto. Demande-lui son numéro de cellulaire à dix chiffres, répète-le-lui pour confirmer, PUIS rappelle ce tool avec ce numéro.",
+    }));
+  }
+
   try {
     const result = await sendSmsViaTwilio(to, body);
     logEvent("sms_sent", { to_hash: hashPhone(result.to), via: "vapi_tool", chars: String(body).length });
@@ -1568,7 +1597,7 @@ app.post("/send_sms_tool", async (req, res) => {
     return res.json(vapiResult(toolCallId, {
       ok: false,
       sent: false,
-      message: "Je n'ai pas réussi à envoyer le SMS. Excuse-toi auprès du client et propose de réessayer ou de noter son numéro.",
+      message: "L'envoi du texto a échoué. NE PROMETS PAS un nouvel envoi automatique : redemande le numéro et fais-le-toi confirmer, ou propose de poursuivre la réponse directement au téléphone ou par courriel.",
     }));
   }
 });

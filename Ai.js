@@ -350,8 +350,10 @@ const SYNONYMS = {
   "acide chlorhydrique": ["acide muriatique", "muriatique", "muriatic acid", "muriatic"],
   "alcalinite":  ["alkalinity", "alc", "ta"],
   "durete":      ["calcium", "hardness", "ch", "durete calcique"],
-  "stabilisant": ["stabilizer", "acide cyanurique", "cya", "cyanuric"],
-  "algicide":    ["algaecide", "algecide", "anti algues", "anti-algues"],
+  "stabilisant": ["stabilizer", "acide cyanurique", "cya", "cyanuric", "stabilisateur"],
+  "algicide":    ["algaecide", "algecide", "anti algues", "anti-algues", "algicide destructeur", "destructeur 60", "algicide 60"],
+  // Ajout coach 2026-06 : neutralisant/réducteur de chlore (produit Chlore-Out Atlantis).
+  "neutralisant chlore": ["neutralisant", "reducteur de chlore", "reduire le chlore", "diminuer le chlore", "chlore out", "chlore-out", "chlorine reducer", "chlorine neutralizer", "neutralisant de chlore"],
   "floculant":   ["flocculant", "clarifiant", "clarifier"],
   "sel":         ["salt", "saline", "electrolyse", "electrolyseur", "salt cell", "cell", "cellule", "intellichlor", "aquarite"],
   "oxygene":     ["oxygen", "peroxyde", "shock"],
@@ -426,6 +428,8 @@ const SYNONYMS = {
   // le mot « clavier » employé seul au téléphone (recherche clavier de contrôle spa Balboa).
   "clavier":     ["topside", "topside control", "keypad", "clavier de controle", "clavier spa", "pad"],
   "element chauffant": ["heating element", "heater element", "element chauffant spa"],
+  // Ajout coach 2026-06 : boîtier de contrôle / pack de spa (≠ clavier topside).
+  "controle spa": ["boite de controle", "panneau de controle", "panneau de controle spa", "control box", "spa pack", "controleur spa", "bloc de controle"],
   // Ajouts coach 2026-06 : coussins/appuis-tête de spa + modèle Hydropool Serenity 6800.
   "appuie-tete": ["appui tete", "appui-tete", "repose tete", "coussin", "coussins", "coussin spa", "coussins spa", "headrest", "head rest", "oreiller spa"],
   "serenity":    ["serenity 6800", "serenity6800", "hydropool serenity"],
@@ -434,8 +438,11 @@ const SYNONYMS = {
   "piscine":     ["pool", "swimming pool", "bassin"],
 
   // --- Couverture / hivernage ---
-  "couverture":  ["cover", "bache", "toile dhiver", "winter cover", "couvert", "couvercle de spa", "spa cover"],
+  "couverture":  ["cover", "bache", "toile dhiver", "winter cover", "couvert", "couverte", "couvercle", "couvercle spa", "couvercle de spa", "spa cover"],
   "solaire":     ["solar cover", "couverture solaire", "bache solaire", "bulle"],
+  // Ajout coach 2026-06 : couverture/toile solaire LIQUIDE (produit anti-évaporation).
+  // Produit réel = « Heat Capture Onyx, Toile solaire liquide » (SKU 62TSL01).
+  "toile solaire liquide": ["solaire liquide", "couverture solaire liquide", "couverture liquide", "bache solaire liquide", "liquide solaire", "heat capture", "solar pill", "heatsavr", "liquid solar cover"],
   "hivernage":   ["winter", "winterizing", "wintering", "fermeture"],
   "ouverture":   ["opening", "demarrage"],
 

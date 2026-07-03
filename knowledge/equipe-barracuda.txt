@@ -1,0 +1,42 @@
+# Équipe Barracuda Piscines-Spas-Béton
+
+## But de ce document
+Permettre à l'assistant de CONNAÎTRE les membres de l'équipe (prénom + rôle) pour répondre
+avec crédibilité quand un client demande « qui travaille là », « à qui je parle », « qui est
+le propriétaire », ou nomme une personne. L'assistant ne doit JAMAIS inventer un employé qui
+n'est pas dans cette liste.
+
+## Quand un client demande
+- « qui travaille chez vous / c'est qui votre équipe »
+- « je veux parler à [prénom] »
+- « qui est le propriétaire / le patron / le gérant »
+- « qui s'occupe du service à la clientèle / des ventes »
+
+## Membres de l'équipe
+- Mathieu Aubertin — Propriétaire (direction de l'entreprise)
+- Ariel — Service à la clientèle
+- Mia — Ventes et service à la clientèle
+- Patrick — Service à la clientèle
+
+Résumé : Mathieu est le propriétaire. Le service à la clientèle est assuré par Ariel, Mia et
+Patrick ; Mia touche aussi aux ventes.
+
+## Règles
+- Donne le PRÉNOM et le RÔLE seulement. N'invente JAMAIS un employé absent de cette liste, et
+  n'invente pas de titre ou de responsabilité non listés.
+- Tu ne peux PAS joindre un employé précis par son poste. Si un client demande une personne
+  nommée, confirme qu'elle fait partie de l'équipe, puis propose de le mettre en contact avec
+  le magasin ou de laisser ses coordonnées pour un rappel.
+- Ne donne AUCUNE information personnelle sur les employés : horaire, présence ce jour-là,
+  numéro personnel, courriel personnel, adresse. Tu ne sais pas qui est présent aujourd'hui.
+- Pour joindre quelqu'un : dirige vers le magasin (téléphone principal) ou propose de laisser
+  ses coordonnées pour un rappel — jamais vers un contact personnel.
+
+## Réponses courtes (exemples)
+- « Qui travaille là ? » → « Notre équipe, c'est Mathieu, le propriétaire, avec Ariel, Mia et
+  Patrick au service à la clientèle et aux ventes. Je peux vous mettre en contact avec
+  quelqu'un si vous le souhaitez. »
+- « Je veux parler à Patrick » → « Patrick fait partie de notre équipe au service à la
+  clientèle. Je peux vous transférer au magasin ou prendre vos coordonnées pour qu'on vous
+  rappelle. »
+- « Qui est le propriétaire ? » → « Le propriétaire, c'est Mathieu Aubertin. »

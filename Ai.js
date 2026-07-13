@@ -119,7 +119,7 @@ const TWILIO_SMS_FROM = process.env.TWILIO_SMS_FROM;
 const WELCOME_SMS_TEXT = process.env.WELCOME_SMS_TEXT ||
   "Ici Piscines Barracuda. Répondez à ce message avec votre question — produit, commande ou horaire — et notre assistant vous aide immédiatement. Merci de votre appel!";
 // URL publique de ce serveur (pour les callbacks Twilio). Défaut = l'URL prod Railway connue.
-const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "https://barracuda-ai-agent-production-806d.up.railway.app").replace(/\/+$/, "");
+const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "https://vapi-production-0c30.up.railway.app").replace(/\/+$/, "");
 // Message d'accueil joué quand personne ne répond (modifiable via env sans toucher au code).
 const VOICEMAIL_GREETING = process.env.VOICEMAIL_GREETING ||
   "Bonjour, vous avez bien rejoint Barracuda Piscines et Spas. Nous ne sommes pas en mesure de prendre votre appel pour le moment. Laissez-nous votre nom, votre numero de telephone et votre message apres le bip sonore, et nous vous rappellerons des que possible. Merci!";
@@ -344,7 +344,11 @@ function tokenize(s) {
 
 const SYNONYMS = {
   // --- Chimie de l'eau ---
-  "chlore":      ["chlorine", "chl", "trichlore", "dichlore", "hypochlorite"],
+  // Ajout coach 2026-07 : « chlore cristal » = chlore granulé stabilisé (dit par un client marque Onix/Onyx).
+  "chlore":      ["chlorine", "chl", "trichlore", "dichlore", "hypochlorite", "chlore cristal", "cristaux de chlore", "chlore granule", "granule", "chlore stabilise", "chlore en granule"],
+  // Ajout coach 2026-07 : les produits Onyx sont écrits « Krystal » (Chlor Krystal, krystal filtre…) mais
+  // les clients disent « cristal ». On rend les deux orthographes interchangeables, tous produits confondus.
+  "cristal":     ["cristaux", "krystal", "krystall", "kristal", "chrystal", "chlor krystal", "chlore krystal"],
   "brome":       ["bromine"],
   "ph":          ["ph minus", "ph plus", "ph moins", "ph up", "ph down"],
   "acide chlorhydrique": ["acide muriatique", "muriatique", "muriatic acid", "muriatic"],
@@ -355,6 +359,8 @@ const SYNONYMS = {
   // Ajout coach 2026-06 : neutralisant/réducteur de chlore (produit Chlore-Out Atlantis).
   "neutralisant chlore": ["neutralisant", "reducteur de chlore", "reduire le chlore", "diminuer le chlore", "chlore out", "chlore-out", "chlorine reducer", "chlorine neutralizer", "neutralisant de chlore"],
   "floculant":   ["flocculant", "clarifiant", "clarifier"],
+  // Ajout coach 2026-07 : séquestrant / détachant à métaux (métaux dissous dans l'eau).
+  "sequestrant": ["sequestrent", "detachant a metaux", "detachant metaux", "detachant de metaux", "neutralisant metaux", "neutralisant a metaux", "neutralisant de metaux", "anti metaux", "anti-metaux", "elimine metaux", "controleur de metaux", "metal out", "metal free", "metal control", "stain and scale"],
   "sel":         ["salt", "saline", "electrolyse", "electrolyseur", "salt cell", "cell", "cellule", "intellichlor", "aquarite"],
   "oxygene":     ["oxygen", "peroxyde", "shock"],
   "choc":        ["shock", "superchloration", "super chlore"],
@@ -413,6 +419,12 @@ const SYNONYMS = {
   "starite":     ["sta rite", "sta-rite", "staright"],
   "aqualeader":  ["aqua leader", "aquatour", "aqua tour", "aquatours"],
   "variflo":     ["vari flo", "vari-flo", "veriflow", "veri flow"],
+  // Ajout coach 2026-07 : marque Onyx (chimie piscine) souvent prononcée/écrite « Onix ».
+  // ⚠️ Le mot « onyx » apparaît AUSSI dans « Heat Capture Onyx » (toile solaire liquide) : collision possible.
+  "onyx":        ["onix", "onyxe", "onnix", "oniks", "oneeks"],
+  // Ajout coach 2026-07 : Gecko (contrôleurs électroniques de spa) + Balboa (même famille de pièces).
+  "gecko":       ["geko", "gekko", "jecko", "guecko", "panneau spa gecko", "controle gecko"],
+  "balboa":      ["balbo", "balbao", "balboua", "panneau spa balboa"],
 
   // --- Tests d'eau ---
   "bandelette":  ["bandelettes", "strip", "strips", "test strip", "bandes test"],
@@ -439,7 +451,8 @@ const SYNONYMS = {
 
   // --- Couverture / hivernage ---
   "couverture":  ["cover", "bache", "toile dhiver", "winter cover", "couvert", "couverte", "couvercle", "couvercle spa", "couvercle de spa", "spa cover"],
-  "solaire":     ["solar cover", "couverture solaire", "bache solaire", "bulle"],
+  // Ajout coach 2026-07 : « toile solaire » (couverture à bulles physique, ≠ toile solaire liquide plus bas).
+  "solaire":     ["solar cover", "couverture solaire", "bache solaire", "bulle", "toile solaire", "toile solaire piscine", "toile a bulle", "toile a bulles", "couverture a bulles"],
   // Ajout coach 2026-06 : couverture/toile solaire LIQUIDE (produit anti-évaporation).
   // Produit réel = « Heat Capture Onyx, Toile solaire liquide » (SKU 62TSL01).
   "toile solaire liquide": ["solaire liquide", "couverture solaire liquide", "couverture liquide", "bache solaire liquide", "liquide solaire", "heat capture", "solar pill", "heatsavr", "liquid solar cover"],
@@ -450,8 +463,12 @@ const SYNONYMS = {
   "robot":       ["robotic cleaner", "aspirateur robot", "cleaner", "polaris", "dolphin", "nettoyeur", "robot nettoyeur", "robot de piscine", "nettoyeur de piscine", "pool cleaner"],
   "balai":       ["brush", "broom", "brosse"],
   "epuisette":   ["skim net", "leaf net", "puise"],
-  "aspirateur":  ["vacuum", "aspirateur manuel"],
+  // Ajout coach 2026-07 : « vacuaux » = pluriel québécois de vacuum ; + aspirateur de piscine / rechargeable.
+  "aspirateur":  ["vacuum", "aspirateur manuel", "aspirateur de piscine", "aspirateur rechargeable", "vacuaux", "vacuau", "vacum", "vacoum", "vaccum"],
   "tuyau aspirateur": ["vacuum hose"],
+  // Ajout coach 2026-07 : « chaudière » = terme québécois pour un seau/contenant de produit chimique.
+  // ⚠️ Ambigu : « chaudière » peut aussi désigner un chauffe-eau — à surveiller dans les logs.
+  "seau":        ["chaudiere", "chaudieres", "seaux", "contenant", "contenant de produit", "pail", "bucket"],
 
   // --- Éclairage / accessoires ---
   "lumiere":     ["light", "led", "eclairage"],
@@ -604,6 +621,7 @@ const PRODUCTS_GQL = `
           vendor
           productType
           tags
+          description
           totalInventory
           onlineStoreUrl
           featuredImage { url altText }
@@ -738,6 +756,46 @@ async function cascadeSearch(args) {
         widened: level !== "STRICT",  // « widened » = vrai si on a élargi au-delà du niveau strict
         debugTrace,
       };
+    }
+  }
+
+  // ── Repli DESCRIPTION (post-fetch) ──────────────────────────────────────
+  // La recherche Shopify n'indexe PAS la description (body_html). Pour les requêtes
+  // « modèle / année » (ex. « spa Gecko 2022 » : l'année n'est souvent QUE dans la
+  // description, « Years Used: 2023 - Current »), on récupère un large ensemble de
+  // candidats via les champs indexés (titre/tag/type/vendor), puis on filtre côté
+  // serveur sur titre + description. Ne se déclenche qu'en tout dernier recours.
+  if (widenIfEmpty && tokens.length > 0) {
+    const orBlock = tokens.map(tok => {
+      const syns = expandSynonyms(tok);
+      return syns.map(s => `title:${s}* OR tag:${s}* OR product_type:${s}* OR vendor:${s}*`).join(" OR ");
+    }).join(" OR ");
+    const q = `(${orBlock}) AND status:active`;
+    try {
+      const raw = await runShopifySearch(q, Math.min(fetchCount * 3, 100));
+      // Matching par SCORE sur titre + description. On ignore les mots courts/outils
+      // (« de », « pour »…) pour ne garder que les tokens distinctifs (marque, modèle, année).
+      const STOP = new Set(["les","des","une","pour","avec","dans","mon","est","que","qui","vous","nous","son","ses","aux"]);
+      const sig = tokens.filter(t => t.length >= 3 && !STOP.has(t));
+      const need = sig.length <= 1 ? sig.length : 2;   // 1 token distinctif → il doit matcher ; sinon au moins 2
+      const scored = raw
+        .map(p => {
+          const hay = normalize(`${p.title || ""} ${p.description || ""}`);
+          const score = sig.reduce((n, tok) => n + (expandSynonyms(tok).some(s => hay.includes(s)) ? 1 : 0), 0);
+          return { p, score };
+        })
+        .filter(x => x.score > 0 && x.score >= need)
+        .sort((a, b) => b.score - a.score)
+        .map(x => x.p);
+      const products = applyPriceFilter(scored, minPrice, maxPrice);
+      debugTrace.push({ level: "DESCRIPTION", query: q, fetched: raw.length, after_desc_filter: products.length });
+      console.log(`[cascade] level=DESCRIPTION query="${q}" fetched=${raw.length} after_desc_filter=${products.length}`);
+      if (products.length > 0) {
+        return { products: products.slice(0, limit), level: "DESCRIPTION", finalQuery: q, widened: true, debugTrace };
+      }
+    } catch (err) {
+      console.error(`[cascade] level=DESCRIPTION FAILED query="${q}" err=${err.message}`);
+      debugTrace.push({ level: "DESCRIPTION", query: q, error: err.message });
     }
   }
 
@@ -1277,7 +1335,7 @@ SPOKEN FORMAT — you are on the phone, not writing:
 
 PERSONA AND BRAND:
 - You are Barry, a (male) virtual assistant.
-- Write the brand name "Barracuda" as "Barra-cuda" (with the hyphen) so the voice pronounces it correctly (not "Barakuda").
+- When you SAY the store name out loud, always write it exactly "Barracuda" (two r, two c). Never write "Baracuda", "Barakuda" or "Barra-cuda". The English voice pronounces "Barracuda" correctly on its own.
 
 SENDING A TEXT (SMS):
 - NEVER say a text was "sent" before the send tool's result confirms it.
@@ -1297,7 +1355,7 @@ FORMAT PARLÉ — tu parles au téléphone, tu n'écris pas :
 
 PERSONA ET MARQUE :
 - Tu es Barry, un assistant virtuel (masculin). Dis TOUJOURS « assistant », JAMAIS « assistante ».
-- Écris le nom de la marque « Barracuda » sous la forme « Barra-cuda » (avec le trait d'union) pour que la voix le prononce correctement (et non « Barakuda »).
+- Quand tu PRONONCES le nom du magasin à voix haute, écris-le TOUJOURS « Barracouda » (avec « ou ») : c'est la seule orthographe que la voix française prononce correctement (« ba-ra-KOU-da »). N'écris JAMAIS « Barracuda », « Baracuda », « Barakuda » ni « Barra-cuda » quand tu parles.
 
 ENVOI DE TEXTO (SMS) :
 - N'annonce JAMAIS qu'un texto est « envoyé » ou « parti » avant que le résultat du tool d'envoi le confirme.
@@ -1525,12 +1583,12 @@ app.post("/chat/completions", async (req, res) => {
 // Normalise un numéro en E.164 nord-américain (Twilio l'exige : +1XXXXXXXXXX).
 function toE164(raw) {
   if (!raw) return null;
-  const s = String(raw).trim();
-  if (s.startsWith("+")) return s.replace(/[^\d+]/g, "");      // déjà E.164
-  const digits = s.replace(/\D/g, "");
+  // NANP strict : on ne garde QUE les chiffres. Un « + » permissif laissait passer
+  // les valeurs d'appel masqué (« anonymous » → "", « +266696687 » = 9 chiffres non NANP).
+  const digits = String(raw).replace(/\D/g, "");
   if (digits.length === 10) return "+1" + digits;             // 10 chiffres → +1
   if (digits.length === 11 && digits.startsWith("1")) return "+" + digits;
-  return null;                                                // format inconnu
+  return null;                                                // masqué / VoIP / incomplet / étranger
 }
 
 // Envoie un SMS via l'API REST Twilio. Renvoie { success, message_id, to }.
@@ -1578,19 +1636,21 @@ app.post("/send_sms_tool", async (req, res) => {
   const to = args.to || callerNumber;
   const body = args.body || args.message || WELCOME_SMS_TEXT;   // défaut = SMS de bienvenue
 
-  // #4 — Aucun numéro disponible (appel masqué / VoIP) : NE PAS tenter l'envoi (échec
-  // silencieux) ni promettre le texto. On demande le numéro AVANT toute promesse.
-  if (!to) {
+  // #4 — Numéro absent, masqué (« anonymous », « +266696687 »), VoIP ou incomplet :
+  // toE164 renvoie null. NE PAS tenter l'envoi (échouerait en aval avec un message
+  // générique) ni promettre le texto. On demande le numéro AVANT toute promesse.
+  const toE = toE164(to);
+  if (!toE) {
     return res.json(vapiResult(toolCallId, {
       ok: false,
       sent: false,
       need_number: true,
-      message: "Aucun numéro de cellulaire disponible pour ce client (appel masqué ou VoIP). NE DIS PAS que tu as envoyé un texto. Demande-lui son numéro de cellulaire à dix chiffres, répète-le-lui pour confirmer, PUIS rappelle ce tool avec ce numéro.",
+      message: "Aucun numéro de cellulaire valide pour ce client (appel masqué, VoIP ou numéro incomplet). NE DIS PAS que tu as envoyé un texto. Demande-lui son numéro de cellulaire à dix chiffres, répète-le-lui pour confirmer, PUIS rappelle ce tool avec ce numéro.",
     }));
   }
 
   try {
-    const result = await sendSmsViaTwilio(to, body);
+    const result = await sendSmsViaTwilio(toE, body);
     logEvent("sms_sent", { to_hash: hashPhone(result.to), via: "vapi_tool", chars: String(body).length });
     console.log(`[send_sms_tool] envoyé à ${result.to} (sid=${result.message_id})`);
     return res.json(vapiResult(toolCallId, {
@@ -1624,7 +1684,7 @@ app.post("/send_sms_tool", async (req, res) => {
 //
 // CONFIG TWILIO REQUISE :
 //   Phone Numbers → ton numéro → Messaging → "A message comes in" →
-//   Webhook → URL = https://barracuda-ai-agent-production-806d.up.railway.app/sms/incoming
+//   Webhook → URL = https://vapi-production-0c30.up.railway.app/sms/incoming
 //   Method = POST
 
 // Durée de vie d'une session : 1 heure. Au-delà, on considère la conversation
@@ -2507,7 +2567,7 @@ setInterval(async () => {
 // CONFIG TWILIO REQUISE (dans le TwiML Bin du +18196171695) :
 //   <Response>
 //     <Dial timeout="20"
-//           action="https://barracuda-ai-agent-production-806d.up.railway.app/voicemail/after-dial"
+//           action="https://vapi-production-0c30.up.railway.app/voicemail/after-dial"
 //           method="POST">
 //       <Sip>sip:104@barracuda.sip.twilio.com</Sip>
 //     </Dial>

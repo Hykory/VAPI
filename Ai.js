@@ -358,7 +358,11 @@ const SYNONYMS = {
   "algicide":    ["algaecide", "algecide", "anti algues", "anti-algues", "algicide destructeur", "destructeur 60", "algicide 60"],
   // Ajout coach 2026-06 : neutralisant/réducteur de chlore (produit Chlore-Out Atlantis).
   "neutralisant chlore": ["neutralisant", "reducteur de chlore", "reduire le chlore", "diminuer le chlore", "chlore out", "chlore-out", "chlorine reducer", "chlorine neutralizer", "neutralisant de chlore"],
-  "floculant":   ["flocculant", "clarifiant", "clarifier"],
+  // Ajout coach 2026-07-20 : « aloum » = alun (sulfate d'aluminium), un coagulant/floculant.
+  "floculant":   ["flocculant", "clarifiant", "clarifier", "alun", "aloum", "sulfate daluminium"],
+  // Ajout coach 2026-07-20 : bâtons de chlore concentrés (ex. Atlantis UV Defense 1.5 kg) —
+  // « défense sticks UV » / « UV defense sticks » entendus au téléphone.
+  "baton chlore": ["batons chlore", "baton de chlore", "batons de chlore", "stick chlore", "sticks chlore", "chlorine stick", "uv defense", "defense uv", "uv defense sticks"],
   // Ajout coach 2026-07 : séquestrant / détachant à métaux (métaux dissous dans l'eau).
   "sequestrant": ["sequestrent", "detachant a metaux", "detachant metaux", "detachant de metaux", "neutralisant metaux", "neutralisant a metaux", "neutralisant de metaux", "anti metaux", "anti-metaux", "elimine metaux", "controleur de metaux", "metal out", "metal free", "metal control", "stain and scale"],
   "sel":         ["salt", "saline", "electrolyse", "electrolyseur", "salt cell", "cell", "cellule", "intellichlor", "aquarite"],
@@ -375,16 +379,22 @@ const SYNONYMS = {
   "filtre":      ["filter", "filtration", "filtreur"],
   "cartouche":   ["cartridge", "element filtrant"],
   "sable":       ["sand", "sable filtrant"],
-  "verre":       ["glass media", "verre filtrant"],
+  // Ajout coach 2026-07-20 : « sacs de vitre » = sacs de verre filtrant (mal transcrit).
+  "verre":       ["glass media", "verre filtrant", "vitre", "sac de verre", "sacs de verre"],
   "chauffage":   ["heater", "rechauffeur", "thermopompe", "heat pump", "chauffe eau", "chauffe-eau", "pompe a chaleur"],
   "echangeur":   ["exchanger", "heat exchanger"],
   "minuterie":   ["timer", "horloge", "controle"],
   "ecumoir":     ["skimmer", "ecumeur", "ecumoire", "ecumeware"],
   "buse":        ["jet", "return", "refoulement", "eyeball"],
   "valve":       ["vanne", "valve multivoie", "multivoies", "multiport", "soupape", "variflo", "vari flo", "veriflow", "spring valve"],
+  // Ajout coach 2026-07-20 : clapet anti-retour (mal transcrit « clapet de réservoir… »).
+  "clapet":      ["clapet anti-retour", "clapet anti retour", "clapet de retenue", "check valve", "non return valve"],
   "ressort":     ["spring", "spring valve", "ressort de soupape"],
-  "tuyau":       ["hose", "boyau", "pipe", "conduite"],
+  // Ajout coach 2026-07-20 : « flexible » = tuyau flexible de piscine/spa.
+  "tuyau":       ["hose", "boyau", "pipe", "conduite", "flexible", "tuyau flexible"],
   "raccord":     ["fitting", "union", "coude", "te", "elbow"],
+  // Ajout coach 2026-07-20 : « bague » d'une pompe (ex. Power Flow 2, SPX810) = écrou-union / collet de serrage.
+  "bague":       ["union", "ecrou union", "ecrou de serrage", "bague de serrage", "collet", "lock nut", "union lock nut"],
   "joint":       ["o-ring", "oring", "o ring", "joint torique", "gasket", "seal", "joint detancheite"],
   "drain":       ["drain de fond", "main drain", "bonde", "bouchon de vidange", "drain plug", "plug"],
 
@@ -427,7 +437,8 @@ const SYNONYMS = {
   "balboa":      ["balbo", "balbao", "balboua", "panneau spa balboa"],
 
   // --- Tests d'eau ---
-  "bandelette":  ["bandelettes", "strip", "strips", "test strip", "bandes test"],
+  // Ajout coach 2026-07-20 : « languettes » entendu pour bandelettes de test.
+  "bandelette":  ["bandelettes", "strip", "strips", "test strip", "bandes test", "languette", "languettes"],
   "analyse":     ["analysis", "test eau", "water analysis", "water test"],
   "trousse":     ["kit", "test kit", "trousse danalyse"],
   "reactif":     ["reagent", "reactifs", "reagents"],
@@ -440,6 +451,8 @@ const SYNONYMS = {
   // le mot « clavier » employé seul au téléphone (recherche clavier de contrôle spa Balboa).
   "clavier":     ["topside", "topside control", "keypad", "clavier de controle", "clavier spa", "pad"],
   "element chauffant": ["heating element", "heater element", "element chauffant spa"],
+  // Ajout coach 2026-07-20 : « blower » = souffleur/surpresseur d'air de spa.
+  "souffleur":   ["blower", "surpresseur", "air blower", "souffleur spa", "pompe a air", "surpresseur spa"],
   // Ajout coach 2026-06 : boîtier de contrôle / pack de spa (≠ clavier topside).
   "controle spa": ["boite de controle", "panneau de controle", "panneau de controle spa", "control box", "spa pack", "controleur spa", "bloc de controle"],
   // Ajouts coach 2026-06 : coussins/appuis-tête de spa + modèle Hydropool Serenity 6800.

@@ -41,6 +41,13 @@
 - **Premier réflexe** : vérifier le niveau d'eau, faire couler la pompe manuellement.
 - → transferCall (risque d'endommager le chauffage si pas réglé vite).
 
+### T / tESt / « la température suivie de la lettre T » — Mode test / diagnostic
+- L'écran affiche un « T » (parfois « tESt ») à côté ou à la place de la température : le panneau est en **mode test / diagnostic**, PAS une lecture de température.
+- ⚠️ Ce n'est **PAS** une température en kelvins ni en Fahrenheit — ne jamais interpréter le « T » comme une unité de température.
+- **Cause probable** : le spa est passé en mode entretien/diagnostic, souvent après une coupure de courant ou une manipulation du panneau. Le manuel du spa demande généralement d'appeler le service.
+- **Premier réflexe** : couper l'alimentation du spa au disjoncteur ~30 secondes, puis rétablir, pour voir si l'affichage normal revient.
+- **Si le « T » persiste** → transferCall (intervention technique / mode test à désactiver par un technicien).
+
 ## ⚠️ À CONFIRMER PAR L'ÉQUIPE BARRACUDA
 - Codes spécifiques aux marques Bullfrog, Hydropool, Sundance (peuvent avoir des codes propriétaires en plus des codes Balboa standard).
 - Procédure de réinitialisation que le client peut faire SEUL avant de transférer.

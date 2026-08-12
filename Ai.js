@@ -1738,9 +1738,9 @@ function escapeXml(s = "") {
 // Appelle l'API VAPI Chat avec le texte du client.
 // Si on a un previousChatId (= conversation déjà entamée), on le passe pour
 // maintenir le contexte (l'IA se souvient des SMS précédents).
-async function vapiChat(message, previousChatId = null, channel = "sms") {
-  if (!VAPI_PRIVATE_KEY || !VAPI_ASSISTANT_ID) {
-    throw new Error("VAPI credentials missing (VAPI_PRIVATE_KEY / VAPI_ASSISTANT_ID)");
+async function vapiChat(message, previousChatId = null, channel = "sms", assistantId = VAPI_ASSISTANT_ID) {
+  if (!VAPI_PRIVATE_KEY || !assistantId) {
+    throw new Error("VAPI credentials missing (VAPI_PRIVATE_KEY / assistantId)");
   }
 
   // On injecte le canal directement dans le texte du message d'entrée.
@@ -1753,7 +1753,7 @@ async function vapiChat(message, previousChatId = null, channel = "sms") {
     : "";
 
   const body = {
-    assistantId: VAPI_ASSISTANT_ID,
+    assistantId,
     input: channelHint + message,
   };
   if (previousChatId) body.previousChatId = previousChatId;
@@ -1884,6 +1884,254 @@ app.get("/diagnose-sms", async (req, res) => {
       sessions_active: smsSessions.size,
       raw_response: raw,   // structure complète, utile pour debug
     });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+
+// ╭───────────────────────────────────────────────────────────────────────╮
+// │  13bis. PONT WEB CHAT — fenêtre de clavardage du site ↔ VAPI Chat     │
+// ╰───────────────────────────────────────────────────────────────────────╯
+//
+// FLOW COMPLET :
+//   ① Le client écrit dans la fenêtre de clavardage maison du site Shopify
+//      (snippet barry-chat.liquid) — texte, avec ou sans photo.
+//   ② Le snippet fait un POST ici sur /web-chat. Pourquoi un proxy ? L'API
+//      Chat de VAPI exige la clé PRIVÉE — impossible à mettre dans un thème
+//      Shopify (visible par « afficher le code source »).
+//   ③ S'il y a une photo : Claude (vision) la décrit, et la description est
+//      injectée dans le message envoyé à Barry.
+//   ④ On appelle l'API VAPI Chat en STREAMING — même assistant que le widget
+//      vocal (même prompt, mêmes tools Shopify, même base de connaissances).
+//      Continuité de conversation via previousChatId (comme le pont SMS).
+//   ⑤ On retransmet les deltas au navigateur en SSE simplifié :
+//        data: {"type":"delta","text":"..."}     ← morceaux de la réponse
+//        data: {"type":"done","chatId":"..."}    ← fin + id pour la suite
+//        data: {"type":"error","message":"..."}  ← erreur affichable
+//
+// NOTE : le pont SMS (section 13) prouve déjà que l'API Chat fonctionne avec
+// nos assistants custom-LLM. Ici on ajoute le choix FR/EN, la photo et le
+// streaming.
+
+// Assistants du site — les mêmes IDs que le widget vocal. Ils sont publics
+// (visibles dans le HTML du site) : c'est la clé privée qui est secrète.
+const WEB_CHAT_ASSISTANTS = {
+  fr: "dad1ac9d-5317-4765-8e38-55803ee72f74",   // Barry FR
+  en: "3f654c21-10fe-4310-985a-61525858e35b",   // Barry EN
+};
+
+// Modèle de vision pour décrire les photos (même clé Anthropic que le coach
+// hebdo). Haiku = rapide et ~0,2 ¢ par photo. Changeable en une ligne.
+const WEB_CHAT_VISION_MODEL = "claude-haiku-4-5";
+
+// Garde-fous d'entrée : message max 2000 caractères, image max ~3,5 M de
+// caractères base64 (la limite JSON d'Express est à 5 Mo), formats acceptés.
+const WEB_CHAT_MAX_MESSAGE_CHARS = 2000;
+const WEB_CHAT_MAX_IMAGE_B64_CHARS = 3_500_000;
+const WEB_CHAT_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+// Limite anti-abus minimale : 30 requêtes par IP par 5 minutes (le endpoint
+// est public et chaque requête coûte des sous en API).
+const WEB_CHAT_RATE_LIMIT = { windowMs: 5 * 60 * 1000, max: 30 };
+const webChatHits = new Map();   // ip → [timestamps récents]
+function webChatRateLimited(ip) {
+  const now = Date.now();
+  const hits = (webChatHits.get(ip) || []).filter(t => now - t < WEB_CHAT_RATE_LIMIT.windowMs);
+  hits.push(now);
+  webChatHits.set(ip, hits);
+  if (webChatHits.size > 5000) webChatHits.clear();   // borne mémoire dure
+  return hits.length > WEB_CHAT_RATE_LIMIT.max;
+}
+
+// --- Vision : fait décrire la photo par Claude, dans la langue du client ---
+async function describeWebChatPhoto(image, lang) {
+  if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY missing");
+
+  const prompt = lang === "en"
+    ? "You are describing a photo sent by a customer of a pool and spa store (Piscines Barracuda, Gatineau). Factually describe what is visible and useful: water color and clarity, algae or deposits, visible equipment (pump, filter, heater, robot...), any readable text (brand, model, nameplate), test strip if present. 3 to 5 sentences, in English. Never guess a model number that isn't clearly readable. If a precise reading (test strip colors, nameplate) isn't reliable from a photo, say so."
+    : "Tu décris une photo envoyée par un client d'un magasin de piscines et spas (Piscines Barracuda, Gatineau). Décris factuellement ce qui est visible et utile : couleur et limpidité de l'eau, algues ou dépôts, équipement visible (pompe, filtre, chauffe-eau, robot...), toute inscription lisible (marque, modèle, plaque signalétique), bandelette d'analyse le cas échéant. 3 à 5 phrases, en français. Ne devine jamais un numéro de modèle qui n'est pas clairement lisible. Si une lecture précise (couleurs de bandelette, plaque) n'est pas fiable sur photo, dis-le.";
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: WEB_CHAT_VISION_MODEL,
+      max_tokens: 500,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } },
+          { type: "text", text: prompt },
+        ],
+      }],
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Anthropic vision HTTP ${response.status}: ${text.slice(0, 300)}`);
+  }
+  const data = await response.json();
+  const description = (data.content || []).filter(b => b.type === "text").map(b => b.text).join(" ").trim();
+  if (!description) throw new Error("Vision: description vide");
+  return description;
+}
+
+// --- Construit le texte envoyé à Barry (canal + photo + message client) ---
+function buildWebChatInput({ message, photoDescription, lang }) {
+  const parts = [];
+  parts.push(lang === "en"
+    ? "[CHANNEL: WEBSITE CHAT — you are communicating in writing in the website chat window, not by voice]"
+    : "[CANAL: CLAVARDAGE WEB — tu communiques par écrit dans la fenêtre de clavardage du site, pas par voix]");
+  if (photoDescription) {
+    parts.push(lang === "en"
+      ? `[CUSTOMER PHOTO — automatic description by a vision system: "${photoDescription}". You cannot see the photo yourself; rely on this description. If a precise part identification is requested, recommend confirming in store.]`
+      : `[PHOTO DU CLIENT — description automatique par un système de vision : « ${photoDescription} ». Tu ne vois pas la photo toi-même; appuie-toi sur cette description. Si on te demande d'identifier une pièce précise, recommande une confirmation en magasin.]`);
+  }
+  const msg = (message || "").trim();
+  if (msg) {
+    parts.push(msg);
+  } else if (photoDescription) {
+    parts.push(lang === "en"
+      ? "(The customer sent a photo without any text — react to the photo.)"
+      : "(Le client a envoyé une photo sans texte — réagis à la photo.)");
+  }
+  return parts.join("\n\n");
+}
+
+// --- Endpoint principal : POST /web-chat (réponse en SSE) ---
+app.post("/web-chat", async (req, res) => {
+  const started = Date.now();
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip || "?";
+
+  // On répond TOUJOURS en text/event-stream, même pour les erreurs :
+  // le snippet n'a ainsi qu'un seul format à gérer.
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  const sse = (obj) => { if (!res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
+  const fail = (message) => { sse({ type: "error", message }); if (!res.writableEnded) res.end(); };
+
+  try {
+    const { message, previousChatId, image } = req.body || {};
+    const lang = req.body?.lang === "en" ? "en" : "fr";
+
+    // Validations d'entrée
+    if (webChatRateLimited(ip)) {
+      return fail(lang === "en" ? "Too many messages — please wait a moment." : "Trop de messages — patientez un instant.");
+    }
+    const msg = typeof message === "string" ? message.slice(0, WEB_CHAT_MAX_MESSAGE_CHARS) : "";
+    if (!msg.trim() && !image) {
+      return fail(lang === "en" ? "Empty message." : "Message vide.");
+    }
+    if (image && (typeof image.data !== "string" || image.data.length > WEB_CHAT_MAX_IMAGE_B64_CHARS || !WEB_CHAT_IMAGE_TYPES.has(image.mediaType))) {
+      return fail(lang === "en" ? "Invalid or too large image." : "Image invalide ou trop lourde.");
+    }
+
+    // ① Photo → description par Claude vision
+    let photoDescription = null;
+    if (image) {
+      try {
+        photoDescription = await describeWebChatPhoto(image, lang);
+        console.log(`[web-chat] photo décrite (${photoDescription.length} car.)`);
+      } catch (err) {
+        console.error("[web-chat] vision ERREUR:", err.message);
+        logEvent("error", { where: "web_chat_vision", message: err.message });
+        return fail(lang === "en"
+          ? "Couldn't analyze the photo — try again or describe it in words."
+          : "Impossible d'analyser la photo — réessayez ou décrivez-la en mots.");
+      }
+    }
+
+    logEvent("webchat_received", { lang, has_photo: !!image, is_new_session: !previousChatId, body_len: msg.length });
+
+    // ② Appel VAPI Chat en STREAMING
+    const vapiBody = {
+      assistantId: WEB_CHAT_ASSISTANTS[lang] || VAPI_ASSISTANT_ID,
+      input: buildWebChatInput({ message: msg, photoDescription, lang }),
+      stream: true,
+    };
+    if (previousChatId && typeof previousChatId === "string") vapiBody.previousChatId = previousChatId;
+
+    const upstream = await fetch("https://api.vapi.ai/chat", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${VAPI_PRIVATE_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify(vapiBody),
+    });
+
+    if (!upstream.ok) {
+      const text = await upstream.text();
+      console.error(`[web-chat] VAPI HTTP ${upstream.status}: ${text.slice(0, 300)}`);
+      logEvent("error", { where: "web_chat_vapi", message: `HTTP ${upstream.status}` });
+      return fail(lang === "en"
+        ? "Barry is unavailable right now — please try again."
+        : "Barry est indisponible pour l'instant — réessayez.");
+    }
+
+    // ③ Retransmission des deltas SSE de VAPI vers le navigateur.
+    // Format VAPI : data: {"id":"...","path":"chat.output[0].content","delta":"..."}
+    let chatId = null;
+    let sentAny = false;
+    let buffer = "";
+
+    // Si le client ferme l'onglet, on coupe aussi la connexion vers VAPI.
+    res.on("close", () => { try { upstream.body?.destroy?.(); } catch {} });
+
+    for await (const chunk of upstream.body) {
+      buffer += chunk.toString("utf8");
+      let idx;
+      while ((idx = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, idx).trim();
+        buffer = buffer.slice(idx + 1);
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        let ev;
+        try { ev = JSON.parse(payload); } catch { continue; }
+        if (ev.id && !chatId) chatId = ev.id;
+        if (typeof ev.delta === "string" && ev.delta) {
+          sentAny = true;
+          sse({ type: "delta", text: ev.delta });
+        }
+      }
+    }
+
+    if (!sentAny) {
+      // Réponse vide pour une raison X — message générique plutôt que rien.
+      sse({ type: "delta", text: lang === "en"
+        ? "Sorry, I didn't catch that. Could you rephrase?"
+        : "Désolé, je n'ai pas saisi votre message. Pouvez-vous reformuler?" });
+    }
+    sse({ type: "done", chatId });
+    if (!res.writableEnded) res.end();
+
+    logEvent("webchat_replied", { lang, latency_ms: Date.now() - started, has_photo: !!image });
+    console.log(`[web-chat] ok lang=${lang} chatId=${chatId} latence=${Date.now() - started}ms`);
+  } catch (err) {
+    console.error("[web-chat] ERREUR:", err);
+    logEvent("error", { where: "web_chat", message: err.message });
+    fail("Erreur technique — réessayez. / Technical error — please retry.");
+  }
+});
+
+// Endpoint diagnostic — teste le pont web SANS passer par le site :
+//   /diagnose-webchat?msg=Avez-vous+des+filtres&lang=fr
+// Ajoute &chatId=<id> pour tester la continuité de conversation.
+app.get("/diagnose-webchat", async (req, res) => {
+  const msg = req.query.msg || "Avez-vous un filtre Hayward en stock?";
+  const lang = req.query.lang === "en" ? "en" : "fr";
+  try {
+    const input = buildWebChatInput({ message: msg, photoDescription: null, lang });
+    const { chatId, reply } = await vapiChat(input, req.query.chatId || null, "web", WEB_CHAT_ASSISTANTS[lang]);
+    res.json({ ok: true, lang, assistant_id: WEB_CHAT_ASSISTANTS[lang], input_sent: input, chat_id: chatId, reply });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }

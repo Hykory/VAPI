@@ -1,4 +1,4 @@
-# Ouverture de piscine au printemps (procédure et produits)
+# Ouverture de piscine au printemps (procédure et produits) — v2 (correction clarifiants + trousses confirmées)
 
 ## Quand un client demande
 - « comment ouvrir ma piscine »
@@ -26,19 +26,28 @@
 8. Apporter un échantillon d'eau en magasin pour analyse complète (gratuite).
 
 ## Produits couramment utilisés à l'ouverture
+- TROUSSES d'ouverture Barracuda disponibles en boutique (collection « Trousse d'ouverture et de fermeture ») — vérifier via search_shopify_products.
 - Chlore choc (granules ou liquide).
 - Stabilisant (cyanurique) si à plat.
 - Algicide AlgaComplete.
-- Clarifiant selon type de filtre (ClearStix pour sable, Polishing pour cartouche).
+- Clarifiant au besoin : ClearStix (bâtons dans l'écumoire — filtreur à SABLE seulement) ou Polysheen (liquide — TOUS les types de filtres).
 - pH plus / pH moins selon analyse.
 
+## Service d'ouverture à domicile — OFFERT
+- Zone desservie : tout Gatineau et l'est — d'Aylmer (ouest) jusqu'à Papineauville (est).
+- Réservation : prendre les coordonnées (capture_lead) ou transferCall.
+- TARIFS OFFICIELS (Barry PEUT les donner — exception à la règle « pas de prix de service ») :
+  - Ouverture piscine HORS TERRE : 200 $, PLUS les produits requis.
+  - Ouverture piscine CREUSÉE : 250 $, PLUS les produits requis.
+  - Taxes EN SUS sur tous les tarifs.
+- IMPORTANT : les RÉPARATIONS nécessaires à la mise en marche de la piscine ne sont PAS comprises — les pièces sont chargées en sus, et possiblement de la main-d'œuvre aussi. Le mentionner.
+
 ## ⚠️ À CONFIRMER PAR L'ÉQUIPE BARRACUDA
-- Y a-t-il un « kit d'ouverture » Barracuda spécifique vendu en bundle ?
-- Est-ce que Barracuda offre un service d'ouverture à domicile ? Si oui, à quel prix indicatif ?
 - Période de l'année où le service à domicile est saturé / liste d'attente ?
 
 ## Réponse vocale courte
-« Pour ouvrir votre piscine, on commence par enlever la toile, remettre la filtration en route, et faire un traitement à choc. Le mieux, c'est de passer en magasin avec un échantillon d'eau quelques jours après le démarrage. L'analyse est gratuite et on vous oriente vers les bons produits. »
+Prix du service : « Oui, on offre l'ouverture partout à Gatineau, d'Aylmer jusqu'à Papineauville. C'est deux cents dollars pour une piscine hors terre et deux cent cinquante pour une creusée, plus les produits requis. À noter que si des réparations sont nécessaires pour la mise en marche, les pièces et possiblement la main-d'œuvre sont en sus. Voulez-vous que je prenne vos coordonnées pour réserver ? »
+Procédure maison : « Pour ouvrir votre piscine, on commence par enlever la toile, remettre la filtration en route, et faire un traitement à choc — on a d'ailleurs des trousses d'ouverture complètes en boutique. Le mieux, c'est de passer en magasin avec un échantillon d'eau quelques jours après le démarrage. L'analyse est gratuite et on vous oriente vers les bons produits. »
 
 ## Escalade
 - Demande de service d'ouverture à domicile → transferCall.

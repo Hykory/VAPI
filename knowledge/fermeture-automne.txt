@@ -1,4 +1,4 @@
-# Fermeture de piscine à l'automne (hivernage, procédure et produits)
+# Fermeture de piscine à l'automne (hivernage, procédure, produits et SERVICE À DOMICILE) — v2, tarifs validés par Mathieu (juillet 2026)
 
 ## Quand un client demande
 - « comment fermer ma piscine »
@@ -8,41 +8,77 @@
 - « produits d'hivernage »
 - « toile d'hivernage »
 - « kit d'hivernage »
-- « vidange de piscine pour l'hiver »
+- « combien ça coûte une fermeture de piscine »
+- « offrez-vous le service de fermeture »
+
+## SERVICE DE FERMETURE À DOMICILE — OFFERT, TARIFS OFFICIELS
+C'est l'EXCEPTION à la règle « jamais de prix de service » : ces tarifs sont officiels et Barry PEUT les donner.
+- Zone desservie : tout Gatineau et l'est — d'Aylmer (ouest de la ville) jusqu'à Papineauville (est).
+- Piscine HORS TERRE : 280 $.
+- Piscine CREUSÉE : 325 $.
+- Taxes EN SUS sur tous les tarifs.
+- INCLUS : deux gallons d'antigel; l'hivernage de la THERMOPOMPE; l'hivernage des CHUTES d'eau.
+- EN SUS : les produits d'hivernage (kits chimiques — différents kits selon la grandeur de la piscine); l'antigel au-delà de deux gallons; l'installation de la TOILE d'hiver (75 $ additionnels).
+- Piscines avec composantes plus complexes : des frais supplémentaires peuvent s'appliquer — le mentionner.
+- ⚠️ BALLONS D'EAU : nous ne gonflons PAS les ballons d'eau. Si c'est le système utilisé chez le client, les ballons doivent être gonflés AVANT notre visite.
+- Réservation : prendre les coordonnées (capture_lead) ou transferCall.
 
 ## Période typique au Québec
 - Région Gatineau / Outaouais : généralement entre mi-septembre et mi-octobre.
 - Attendre que la température de l'eau soit stable sous 15°C — réduit la croissance d'algues durant l'hiver.
 - Ne pas fermer trop tôt (algues sous la toile) ni trop tard (risque de gel).
 
-## Procédure standard (vue d'ensemble)
+## Procédure standard (vue d'ensemble, pour un client qui la fait lui-même)
 1. Faire une dernière analyse d'eau, ajuster pH et alcalinité.
 2. Traitement à choc final.
 3. Ajouter algicide d'hiver (dose plus forte qu'en saison).
 4. Baisser le niveau d'eau selon le type de piscine (généralement sous les buses de retour ou les skimmers selon procédure).
-5. Vidanger la pompe, le filtre, le chauffage si applicable.
+5. Vidanger la pompe, le filtre, le chauffage/la thermopompe si applicable.
 6. Souffler les lignes de plomberie pour éviter le gel.
 7. Mettre des bouchons d'hivernage dans les buses et skimmers.
 8. Installer la toile d'hivernage.
 
 ## Produits couramment utilisés à la fermeture
+- TROUSSES de fermeture Barracuda disponibles en boutique (collection « Trousse d'ouverture et de fermeture ») — vérifier via search_shopify_products.
 - Algicide d'hiver (dose concentrée).
-- Stabilisant si besoin.
+- Antigel.
 - Bouchons d'hivernage (skimmer + buses).
 - Toile d'hivernage adaptée à la taille de la piscine.
 - Coussin d'air pour toiles d'hivernage de piscines creusées (optionnel).
 
-## ⚠️ À CONFIRMER PAR L'ÉQUIPE BARRACUDA
-- Y a-t-il un « kit de fermeture » Barracuda spécifique vendu en bundle ?
-- Est-ce que Barracuda offre un service de fermeture à domicile ? Si oui, à quel prix indicatif ?
-- Période où le service à domicile est saturé / liste d'attente ?
-- Délai recommandé entre dernier traitement choc et installation de la toile ?
+## Délai entre le choc final et la pose de la toile
+- Faire le traitement à choc final avec la FILTRATION EN MARCHE, puis laisser circuler environ 24 HEURES avant de baisser le niveau d'eau et d'installer la toile.
+- Pourquoi : le choc a besoin de circuler pour être efficace partout, et une eau très chlorée emprisonnée immédiatement sous la toile peut décolorer ou fragiliser la toile d'hivernage et le liner.
+- L'algicide d'hiver s'ajoute vers la fin de cette période de circulation — c'est la dernière étape chimique avant de fermer physiquement.
+- En pratique : le choc se fait la veille, la fermeture physique (vidange des équipements, bouchons, toile) le lendemain.
+- Réponse vocale : « On fait le choc la veille, on laisse filtrer environ vingt-quatre heures, on ajoute l'algicide d'hiver, et ensuite seulement on pose la toile. Si on couvre tout de suite, le chlore concentré peut abîmer la toile et le liner. »
+
+## PROMOTION EN COURS — dépliant Petite-Nation (valide jusqu'au 15 OCTOBRE)
+- Un publipostage Barracuda circule dans le secteur Thurso / Petite-Nation.
+- OFFRE : 10 % de rabais sur la FERMETURE de piscine si le client MENTIONNE le dépliant.
+- Validité : jusqu'au 15 octobre inclusivement. Après cette date : offre terminée, le dire poliment.
+- Application : 10 % sur le tarif de fermeture (280 $ hors terre → 252 $; 325 $ creusée → 292,50 $), avant taxes. Les extras (produits, antigel supplémentaire, toile 75 $) ne sont pas escomptés.
+- À la réservation : NOTER que le client a mentionné le dépliant (l'inclure dans la prise de coordonnées / capture_lead).
+- Réponse vocale : « Oui, tout à fait ! Avec le dépliant, vous avez dix pour cent de rabais sur votre fermeture, valide jusqu'au quinze octobre. Je le note à votre dossier — on prend vos coordonnées ? »
+
+## Réservation et déroulement du service de fermeture (validé par Mathieu)
+- La saison des fermetures DÉBUTE le 1er octobre.
+- Réservation : si le client a une préférence pour la période du mois d'octobre, recommander d'appeler UNE SEMAINE AVANT le 1er octobre pour réserver sa place.
+- Sans préférence : la fermeture est planifiée quand ça accommode l'équipe et qu'elle est dans le secteur du client. On fait notre possible pour accommoder, mais AUCUNE date précise n'est garantie.
+- Le client n'a PAS besoin d'être à la maison lors de la fermeture.
+- Les pièces et accessoires sont placés délicatement au même endroit : les pièces et bouchons avec le moteur (la pompe), et les pièces reliées directement à la piscine dans le panier de l'écumoire.
+- IMPORTANT : le client doit laisser TOUS ses accessoires d'hivernage disponibles, accessibles et à un endroit VISIBLE. Sinon, l'équipe devra en fournir et ils seront AJOUTÉS À LA FACTURE.
+- Rappel : les ballons d'eau doivent être gonflés AVANT la visite (voir plus haut).
+
+## Réponse vocale — réservation
+« Nos fermetures commencent le premier octobre. Si vous avez une préférence pour la période du mois, je vous recommande de réserver une semaine avant le premier octobre — sinon, on passe quand on est dans votre secteur, sans date garantie. Pas besoin d'être à la maison : laissez simplement vos accessoires d'hivernage visibles et accessibles, et vos ballons d'eau gonflés si vous en avez. Voulez-vous que je prenne vos coordonnées pour la réservation ? »
 
 ## Réponse vocale courte
-« Pour fermer votre piscine, on fait un dernier choc, on ajuste les paramètres d'eau, on vide les équipements pour éviter le gel et on installe la toile d'hivernage. Le mieux est de passer en magasin pour qu'on vous oriente vers les bons produits selon votre type de piscine. »
+Prix de fermeture : « Oui, on offre le service de fermeture partout à Gatineau, d'Aylmer jusqu'à Papineauville. C'est deux cent quatre-vingts dollars pour une piscine hors terre et trois cent vingt-cinq pour une creusée, incluant deux gallons d'antigel et l'hivernage de la thermopompe. Les produits d'hivernage et l'installation de la toile, soixante-quinze dollars, sont en sus. Petit détail important : si vous avez des ballons d'eau, il faut les gonfler avant notre visite. Voulez-vous que je prenne vos coordonnées pour réserver ? »
 
 ## Escalade
-- Demande de service de fermeture à domicile → transferCall.
+- Réservation de fermeture → capture_lead ou transferCall.
+- Piscine avec composantes complexes (frais supplémentaires à évaluer) → transferCall.
 - Question technique sur le soufflage des lignes ou la vidange du chauffage → transferCall.
 - Toile d'hivernage à commander sur mesure → transferCall ou visite magasin.
-- Première fermeture pour le client (jamais fait avant) → orienter vers visite magasin pour explication détaillée OU transferCall.
+- Première fermeture pour le client (jamais fait avant) → orienter vers le service à domicile OU visite magasin.

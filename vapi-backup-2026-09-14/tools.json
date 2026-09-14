@@ -1,0 +1,298 @@
+[
+ {
+  "id": "00d2d87e-fde2-4462-b799-3541447bf62b",
+  "createdAt": "2026-07-11T05:37:44.575Z",
+  "updatedAt": "2026-07-11T05:37:44.575Z",
+  "type": "function",
+  "function": {
+   "name": "save_whisper_context",
+   "description": "Sauvegarde le nom du client et le sujet de son appel pour que le système l'annonce à Mathieu avant qu'il ne décroche. DOIT être appelé juste AVANT de transférer un appel à Mathieu (poste 100), jamais pour un transfert vers un conseiller.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "subject": {
+      "description": "Sujet de l'appel, court et clair (ex: une soumission pour une piscine creusée)",
+      "type": "string"
+     },
+     "callerName": {
+      "description": "Nom du client tel qu'il l'a donné (ex: Jean Tremblay)",
+      "type": "string"
+     }
+    },
+    "required": [
+     "callerName",
+     "subject"
+    ]
+   }
+  },
+  "orgId": "50ea05af-dc87-4e5b-82ff-5ed2c1dfc9dd",
+  "server": {
+   "url": "https://yealink-outbound-1768.twil.io/whisper-context",
+   "timeoutSeconds": 10
+  },
+  "async": false
+ },
+ {
+  "id": "e9c499f6-4eb2-41c7-8d34-25a0f3cafaa8",
+  "createdAt": "2026-06-09T18:52:42.131Z",
+  "updatedAt": "2026-07-10T16:24:02.624Z",
+  "type": "function",
+  "function": {
+   "name": "send_sms",
+   "description": "Envoie un SMS au client. À utiliser quand le client accepte de recevoir un texto (ex: il répond oui à l'offre SMS de l'accueil).",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "body": {
+      "description": "Le texte exact du SMS à envoyer.",
+      "type": "string"
+     }
+    },
+    "required": [
+     "body"
+    ]
+   }
+  },
+  "messages": [
+   {
+    "type": "request-start",
+    "blocking": false
+   }
+  ],
+  "orgId": "50ea05af-dc87-4e5b-82ff-5ed2c1dfc9dd",
+  "server": {
+   "url": "https://vapi-production-0c30.up.railway.app/send_sms_tool",
+   "timeoutSeconds": 20,
+   "staticIpAddressesEnabled": false
+  },
+  "variableExtractionPlan": {
+   "schema": {
+    "type": "object",
+    "required": [],
+    "properties": {}
+   }
+  }
+ },
+ {
+  "id": "d2e5e306-9698-4e71-b3f6-893b6e4ec94e",
+  "createdAt": "2026-06-01T16:26:15.403Z",
+  "updatedAt": "2026-07-10T16:24:09.835Z",
+  "type": "function",
+  "function": {
+   "name": "capture_lead",
+   "description": " Enregistre les coordonnées d'un client potentiel (lead) pour un projet d'envergure : piscine\n  creusée, spa, installation, rénovation, travaux de béton, ou demande de soumission,\n  d'estimé ou de rappel par un conseiller. N'appelle PAS ce tool pour une simple question de\n  produit, de prix ou de disponibilité, ni pour un suivi de commande. Demande toujours le nom\n  et le numéro de téléphone du client avant d'appeler.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "email": {
+      "type": "string"
+     },
+     "notes": {
+      "type": "string"
+     },
+     "phone": {
+      "type": "string"
+     },
+     "budget": {
+      "type": "string"
+     },
+     "channel": {
+      "type": "string"
+     },
+     "timeline": {
+      "type": "string"
+     },
+     "project_type": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "phone"
+    ]
+   }
+  },
+  "messages": [
+   {
+    "type": "request-start",
+    "blocking": false
+   }
+  ],
+  "orgId": "50ea05af-dc87-4e5b-82ff-5ed2c1dfc9dd",
+  "server": {
+   "url": "https://vapi-production-0c30.up.railway.app/capture_lead",
+   "timeoutSeconds": 20,
+   "staticIpAddressesEnabled": false
+  },
+  "variableExtractionPlan": {
+   "schema": {
+    "type": "object",
+    "required": [],
+    "properties": {}
+   }
+  }
+ },
+ {
+  "id": "16867cb8-8800-4ed8-9d68-bb582ec23d79",
+  "createdAt": "2026-05-19T18:06:39.893Z",
+  "updatedAt": "2026-07-11T04:36:39.031Z",
+  "type": "transferCall",
+  "function": {
+   "name": "transfer_call_to_Human",
+   "description": "redirige l'appel vers un humain"
+  },
+  "messages": [
+   {
+    "type": "request-start",
+    "blocking": false
+   }
+  ],
+  "orgId": "50ea05af-dc87-4e5b-82ff-5ed2c1dfc9dd",
+  "async": false,
+  "destinations": [
+   {
+    "type": "number",
+    "number": "+18196171695",
+    "message": "Un instant, je vous transfère à un conseiller.",
+    "description": "Appelle transfer_call_to_human UNIQUEMENT si le client demande clairement à parler à quelqu’un.\n\nExemples :\n- \"Je veux parler à quelqu’un\"\n- \"Transférez-moi\"\n- \"Je veux parler à un humain\"\n- \"Je veux parler à un employé\"\n",
+    "transferPlan": {
+     "mode": "blind-transfer",
+     "sipVerb": "refer"
+    },
+    "numberE164CheckEnabled": false
+   },
+   {
+    "type": "number",
+    "number": "+18194127147",
+    "message": "Un instant, je vais voir si Mathieu est disponible.",
+    "description": "Transfert vers Mathieu (poste 100). Utilise UNIQUEMENT si le client demande spécifiquement Mathieu, après avoir demandé le sujet puis le nom.",
+    "transferPlan": {
+     "mode": "blind-transfer",
+     "sipVerb": "refer"
+    },
+    "numberE164CheckEnabled": false
+   }
+  ]
+ },
+ {
+  "id": "c1906f53-cacb-4946-b290-bdc74312a014",
+  "createdAt": "2026-05-15T20:50:35.045Z",
+  "updatedAt": "2026-07-10T16:24:21.459Z",
+  "type": "function",
+  "function": {
+   "name": "search_shopify_orders",
+   "description": " numéro de commande Shopify, ex: 1234 ou #1234",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "description": "Numéro de commande Shopify complet, idéalement avec le # (ex.: #1045).",
+      "type": "string",
+      "default": ""
+     }
+    },
+    "required": [
+     "query"
+    ]
+   }
+  },
+  "messages": [
+   {
+    "type": "request-start",
+    "blocking": false
+   }
+  ],
+  "orgId": "50ea05af-dc87-4e5b-82ff-5ed2c1dfc9dd",
+  "server": {
+   "url": "https://vapi-production-0c30.up.railway.app/search_shopify_orders",
+   "timeoutSeconds": 20,
+   "staticIpAddressesEnabled": false
+  },
+  "variableExtractionPlan": {
+   "schema": {
+    "type": "object",
+    "required": [],
+    "properties": {}
+   }
+  }
+ },
+ {
+  "id": "5a0ca051-1f0f-4872-b112-1748e3c71bec",
+  "createdAt": "2026-05-15T20:50:35.035Z",
+  "updatedAt": "2026-07-10T16:24:30.398Z",
+  "type": "function",
+  "function": {
+   "name": "search_shopify_products",
+   "description": "Recherche des produits Shopify et retourne les produits disponibles.\nToujours utiliser cet outil quand le client cherche un produit, un spa, une pièce, un filtre ou un accessoire.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "tags": {
+      "description": "Liste de tags pour filtrer les produits",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "limit": {
+      "description": "Nombre maximum de résultats. Défaut: 10, maximum: 50",
+      "type": "number"
+     },
+     "query": {
+      "description": "Texte libre de recherche produit",
+      "type": "string"
+     },
+     "vendor": {
+      "description": "Nom du vendeur ou fournisseur",
+      "type": "string"
+     },
+     "max_price": {
+      "description": "Prix maximum",
+      "type": "number"
+     },
+     "min_price": {
+      "description": "Prix minimum",
+      "type": "number"
+     },
+     "product_type": {
+      "description": "Type ou catégorie de produit",
+      "type": "string"
+     },
+     "in_stock_only": {
+      "description": "Retourner seulement les produits en stock. Défaut: false",
+      "type": "boolean"
+     },
+     "widen_if_empty": {
+      "description": "Élargir la recherche si aucun résultat. Défaut: true",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "query"
+    ]
+   }
+  },
+  "messages": [
+   {
+    "type": "request-start",
+    "blocking": false
+   }
+  ],
+  "orgId": "50ea05af-dc87-4e5b-82ff-5ed2c1dfc9dd",
+  "server": {
+   "url": "https://vapi-production-0c30.up.railway.app/search_shopify_products",
+   "timeoutSeconds": 20,
+   "staticIpAddressesEnabled": false
+  },
+  "variableExtractionPlan": {
+   "schema": {
+    "type": "object",
+    "required": [],
+    "properties": {}
+   }
+  }
+ }
+]

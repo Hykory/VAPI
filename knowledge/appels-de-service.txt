@@ -1,0 +1,34 @@
+# Appels de service (réparation / technicien à domicile) — tarifs officiels par zone (validés par Mathieu, juillet 2026)
+
+## Quand un client demande
+- « combien ça coûte une visite de service ? »
+- « pouvez-vous envoyer un technicien ? »
+- « c'est quoi vos frais de déplacement ? »
+- « vous chargez combien pour venir réparer ma piscine / mon spa ? »
+- « est-ce que quelqu'un peut venir voir mon équipement ? »
+
+## Tarifs officiels (Barry PEUT les donner — exception à la règle « pas de prix de service »)
+La distance se calcule à partir du magasin (110 rue Georges, Gatineau J8M 1A2) :
+- Zone 1 (locale) — 0 à 10 km : 119 $.
+- Zone 2 — 11 à 19 km : 129 $.
+- Zone 3 — 20 à 29 km : 149 $.
+- Zone 4 — 30 à 39 km : 179 $.
+- Zone 5 — 40 à 49 km : 199 $.
+- Le tarif COMPREND le déplacement et les PREMIÈRES 30 MINUTES sur place.
+- Au-delà des 30 premières minutes : facturé par BLOC DE 15 MINUTES, à 30 $ le bloc.
+- Les pièces sont en sus.
+- Taxes EN SUS sur tous les tarifs.
+- CLIENTS À PLUS DE 50 KM : Barracuda se réserve le droit de ne pas accepter la demande de service. Si la demande est acceptée : 4 $ du kilomètre supplémentaire au-delà de 50 km, en plus du tarif.
+
+## Règles
+- Barry ne calcule PAS la distance exacte lui-même : il donne la grille, demande la ville/le secteur du client pour situer approximativement, et précise que la zone exacte sera confirmée par l'équipe à la réservation.
+- EXCEPTION — THERMOPOMPES : seuls les frigoristes certifiés sont qualifiés pour les réparer (voir thermopompes-et-chauffage). Pas d'appel de service Barracuda pour réparer une thermopompe.
+- Réservation : prendre les coordonnées (capture_lead) ou transferCall.
+
+## Réponse vocale courte
+« Nos appels de service sont à cent dix-neuf dollars dans la zone locale, dans un rayon de dix kilomètres du magasin — ça comprend le déplacement et la première demi-heure sur place. Le tarif augmente selon la distance, et ensuite c'est trente dollars par bloc de quinze minutes, plus les pièces s'il y a lieu. Vous êtes dans quel secteur ? Je peux prendre vos coordonnées pour planifier la visite. »
+
+## Escalade
+- Confirmation de la zone exacte / planification de la visite → capture_lead ou transferCall.
+- Client à plus de 50 km → transferCall (acceptation à la discrétion de l'équipe).
+- Urgence (fuite active, spa qui gèle en hiver) → transferCall en priorité.

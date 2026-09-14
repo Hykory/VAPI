@@ -1,0 +1,40 @@
+# Systèmes au sel — dépannage et entretien de la cellule
+
+Complément à ouverture-piscine-sel (qui couvre le démarrage au printemps). Barracuda vend des systèmes au sel, des cellules de remplacement et des pièces (collection « Systèmes au sel » — vérifier via search_shopify_products).
+
+## Quand un client demande
+- « mon système affiche Low Salt / Check Salt »
+- « mon système dit Inspect Cell / Check Cell »
+- « ma piscine au sel n'a plus de chlore »
+- « comment nettoyer ma cellule ? »
+- « combien de temps dure une cellule au sel ? »
+- « comment hiverner mon système au sel ? »
+
+## Faits clés
+- « Low Salt » peut être vrai (sel dilué par pluie/appoints d'eau) ou FAUX (cellule usée ou entartrée qui lit mal, eau froide). Ne jamais dire d'ajouter du sel sans une ANALYSE — l'analyse en magasin mesure le taux exact (voir ouverture-piscine-sel : jamais de quantité universelle).
+- Eau froide : sous ~19,5 °C (67 °F), la cellule produit peu ou pas — plusieurs messages d'erreur au printemps/automne viennent juste de la température.
+- « Inspect/Check Cell » : souvent de l'entartrage (dépôts de calcium sur les plaques). Inspection visuelle possible par le client; nettoyage à la solution acide diluée SEULEMENT selon la procédure du fabricant — en cas de doute, passer en magasin pour être conseillé (nous ne testons pas les cellules, mais nous avons les pièces et les cellules de remplacement).
+- Durée de vie typique d'une cellule : environ 3 à 7 ans selon l'usage, l'équilibre de l'eau et l'entretien. Une cellule en fin de vie produit de moins en moins même avec un bon taux de sel.
+- Un pH élevé et une eau entartrante (voir indice de Langelier dans blog-conseils) accélèrent l'entartrage de la cellule.
+- HIVERNAGE : la cellule ne doit JAMAIS geler avec de l'eau dedans — elle se retire/vidange à la fermeture (voir fermeture-automne).
+- Le chlore produit par le sel reste du chlore : les cibles de pH/alcalinité/stabilisant s'appliquent (stabilisant 60-80 ppm acceptable au sel, voir blog-conseils).
+
+## Séquence de diagnostic (une question à la fois)
+1. Quelle marque/modèle de système ? Quel message affiché ?
+2. Température de l'eau actuelle ?
+3. Dernière analyse du taux de sel (magasin) ?
+4. La cellule a quel âge ? A-t-elle déjà été nettoyée ?
+
+## Confirmé par Mathieu (juillet 2026)
+- Systèmes au sel VENDUS et INSTALLÉS : PENTAIR.
+- Nous ne RÉPARONS PAS les systèmes au sel, ni les pompes. Par contre, nous avons les PIÈCES : Pentair, Hayward, Jacuzzi Carvin — et des cellules de remplacement.
+- Nous ne TESTONS PAS les cellules en magasin. (L'analyse d'EAU, elle, reste gratuite — c'est ainsi qu'on mesure le taux de sel.)
+- Nettoyage de cellule : le client peut le faire lui-même en suivant la procédure du fabricant (solution acide diluée); en cas de doute → cellule de remplacement ou conseiller.
+
+## Réponse vocale courte
+« Les messages comme Low Salt ou Check Cell ont plusieurs causes possibles : eau encore froide, cellule entartrée, ou vraiment un manque de sel. Avant d'ajouter quoi que ce soit, apportez-nous un échantillon d'eau — l'analyse est gratuite et on mesure le taux de sel exact. Ensuite on saura si c'est la cellule ou juste l'eau. »
+
+## Escalade
+- Message persistant après analyse et taux corrects → transferCall (cellule ou carte).
+- Cellule à remplacer → vérifier le modèle via search_shopify_products, sinon transferCall.
+- Système qui disjoncte / problème électrique → transferCall.

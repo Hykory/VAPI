@@ -1,0 +1,42 @@
+# Backwash (lavage à contre-courant) d'un filtreur au sable — procédure correcte
+
+## Quand un client demande
+- « comment faire un backwash »
+- « faut-il fermer le moteur pour le backwash »
+- « je n'ai plus de pression quand je ferme la pompe »
+- « la valve de mon filtreur est dure / fuit »
+- « quand faire un backwash »
+- « pression trop haute sur le filtreur »
+
+## Règle numéro un (sécurité de l'équipement)
+On NE TOURNE JAMAIS la poignée de la valve multiport (multiport valve) pendant que la pompe fonctionne. La pression pousse l'eau contre le joint étoile (spider gasket) sous la poignée : tourner la valve sous pression déchire ce joint, et ensuite l'eau passe d'une position à l'autre, la valve fuit ou perd de la pression. Le moteur, lui, ne se brise pas parce qu'on l'arrête et le redémarre : c'est fait pour ça.
+
+## Pourquoi « fermer le moteur » ne fait pas perdre la pression du backwash
+Le moteur s'arrête seulement le temps de bouger la poignée. Dès qu'on le redémarre avec la valve en position BACKWASH, c'est la pompe qui crée la pression et pousse l'eau à l'envers dans le sable. Il n'y a pas de « pression résiduelle » à utiliser : la pression vient toujours de la pompe en marche.
+
+## Procédure (filtreur au sable, valve multiport)
+1. ARRÊTER la pompe.
+2. Tourner la valve à BACKWASH (lavage à contre-courant). Si le filtreur a une valve de vidange, ouvrir la sortie de backwash / le boyau d'évacuation.
+3. REDÉMARRER la pompe. Laisser tourner 1 à 2 minutes, jusqu'à ce que l'eau dans le regard vitré (sight glass) redevienne claire.
+4. ARRÊTER la pompe.
+5. Tourner la valve à RINSE (rinçage).
+6. REDÉMARRER la pompe 20 à 30 secondes. Ça replace le sable et évite de renvoyer de l'eau sale dans la piscine.
+7. ARRÊTER la pompe.
+8. Remettre la valve à FILTER (filtration).
+9. REDÉMARRER la pompe. Vérifier la pression : elle devrait être revenue à la pression « propre » habituelle du filtreur.
+10. Vérifier le niveau d'eau de la piscine : un backwash fait perdre de l'eau, remettre de l'eau au besoin.
+
+## Quand faire un backwash
+- Quand la pression sur le manomètre monte de 8 à 10 psi (livres) au-dessus de la pression « propre » normale du filtreur.
+- Pas trop souvent : un filtreur au sable filtre mieux quand il est un peu chargé. Un backwash par semaine à deux semaines en saison est typique, plus souvent après un traitement d'eau verte ou beaucoup de débris.
+- Après un backwash, la pression de référence se note quand le filtreur est propre.
+
+## Filtreur à cartouche
+Pas de backwash : on arrête la pompe, on ferme les valves si nécessaire, on ouvre le filtreur, on rince la cartouche au boyau (jamais au jet haute pression), et on la remplace quand elle reste sale ou déformée.
+
+## Réponse vocale courte
+« On arrête toujours la pompe avant de bouger la poignée de la valve, sinon on abîme le joint. Pompe fermée, on met la valve à backwash, on repart la pompe une à deux minutes jusqu'à ce que l'eau du regard soit claire, on ferme, on met à rinse, on repart trente secondes, on ferme, on remet à filtre et on repart. C'est la pompe qui fait la pression, pas besoin de la laisser tourner pendant qu'on tourne la valve. »
+
+## Escalade
+- Valve qui fuit ou qui a été tournée sous pression à répétition : le joint étoile est probablement à remplacer. Proposer de passer en magasin avec la marque et le modèle du filtreur, ou prendre les coordonnées (capture_lead) pour un appel de service.
+- Pression qui reste haute après le backwash : sable à changer ou problème de plomberie → conseiller / appel de service.

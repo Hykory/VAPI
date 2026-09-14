@@ -1,0 +1,18 @@
+RÉFÉRENCE : FILTRES DE SPA PAR MODÈLE (Barracuda)
+
+But : aider à trouver le bon filtre de spa selon la marque et le modèle, puis le chercher avec search_shopify_products.
+
+Quand un client cherche un FILTRE DE SPA, identifie d'abord la MARQUE et le MODÈLE / la série du spa (et l'année pour Bullfrog). Ensuite, cherche le bon produit avec search_shopify_products.
+
+HYDROPOOL
+- Spa Hydropool SERENITY (tous les modèles) -> cherche « Filtre de spa Hydropool Serenity ».
+- Spa Hydropool SIGNATURE ou Auto-Nettoyant -> cherche « Filtre de spa Hydropool Signature auto-nettoyant ».
+  EXCEPTION : les modèles Signature 3 places de 30 pouces (ex. 379) utilisent plutôt le « Filtre Hydropool DRB 50sqft ».
+
+BULLFROG
+- Spa Bullfrog séries A et R -> cherche « Filtre Bullfrog Series A-R-X Coreless ».
+  Pour les modèles Bullfrog plus VIEUX, ça peut nécessiter la « Cage de filtre Bullfrog (core filter cage) » — demande l'année du spa.
+- Spa Bullfrog série STIL -> cherche « Filtre de Spa Bullfrog Série STIL ».
+- Spa Bullfrog série M -> cherche « Filtres Simplicity Bullfrog Série M ».
+
+RÈGLE : si tu n'es pas certain de la marque, du modèle, de la série ou de l'année, DEMANDE-le avant de citer un prix. Ne propose jamais un filtre au hasard.

@@ -1,0 +1,80 @@
+[
+ {
+  "id": "9565f7f1-4ec8-4396-b7fc-7070b9e954bb",
+  "orgId": "50ea05af-dc87-4e5b-82ff-5ed2c1dfc9dd",
+  "createdAt": "2026-05-20T17:03:05.013Z",
+  "updatedAt": "2026-05-26T14:51:56.933Z",
+  "members": [
+   {
+    "assistantId": "7f9e517e-0432-4d02-ba54-dbc27c368401",
+    "assistantOverrides": {
+     "metadata": {
+      "position": {
+       "x": 88.54429035931437,
+       "y": -116.62640830964196
+      }
+     },
+     "tools:append": [
+      {
+       "type": "handoff",
+       "async": false,
+       "function": {
+        "name": "transfer_to_french"
+       },
+       "messages": [],
+       "destinations": [
+        {
+         "type": "assistant",
+         "assistantId": "dad1ac9d-5317-4765-8e38-55803ee72f74",
+         "description": "Use this destination as soon as the caller speaks French or Québécois French. Trigger immediately on the caller's first French utterance - even a single work like \"oui\", \"bonjour\", \"allo\" is enough to confirm. Do not wait, do not answer the request yourself, just transfer.",
+         "assistantName": "Piscine barracuda FR"
+        }
+       ],
+       "defaultResult": "Un instant. "
+      },
+      {
+       "type": "handoff",
+       "async": false,
+       "function": {
+        "name": "transfer_to_english"
+       },
+       "messages": [],
+       "destinations": [
+        {
+         "type": "assistant",
+         "assistantId": "3f654c21-10fe-4310-985a-61525858e35b",
+         "description": "Use this destination as soon as the caller speaks English, or explicitly asks for English (e.g. \"English please\", \"Can I have English\", \"Hello). A single English word is enough. Do not wait, do not answer the request yourself, just transfer.",
+         "assistantName": "Piscine Barracuda EN"
+        }
+       ],
+       "defaultResult": "Sure, one moment. "
+      }
+     ]
+    }
+   },
+   {
+    "assistantId": "dad1ac9d-5317-4765-8e38-55803ee72f74",
+    "assistantOverrides": {
+     "metadata": {
+      "position": {
+       "x": 883.0599614475856,
+       "y": -276.9886413176391
+      }
+     }
+    }
+   },
+   {
+    "assistantId": "3f654c21-10fe-4310-985a-61525858e35b",
+    "assistantOverrides": {
+     "metadata": {
+      "position": {
+       "x": 870.9703039583785,
+       "y": 230.0590130722303
+      }
+     }
+    }
+   }
+  ],
+  "name": "Barracuda"
+ }
+]

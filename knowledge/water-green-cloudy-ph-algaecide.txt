@@ -1,4 +1,4 @@
-# Eau verte, eau trouble, algues, pH déséquilibré (piscine)
+# Eau verte, eau trouble, algues, pH déséquilibré (piscine) — v2 (correction ClearStix/Polysheen)
 
 ## Quand un client demande
 - « ma piscine est verte »
@@ -20,15 +20,16 @@
 - Algicide recommandé Barracuda : AlgaComplete (breveté, économique, efficace).
 - Algues mortes en suspension après traitement = eau encore embrouillée, c'est normal pendant 24-48h.
 
-## Selon le type de filtre
-- Filtre à sable → ClearStix (agit dans le sable, aide à capter les particules fines).
-- Filtre à cartouche → Polishing (clarifiant liquide, regroupe les micro-particules pour que la cartouche les capte).
+## Clarifiants — selon le type de filtre (RÈGLE CORRIGÉE)
+- **ClearStix** : bâtons clarifiants à déposer dans l'ÉCUMOIRE. Compatibles UNIQUEMENT avec les filtreurs à SABLE. Ne JAMAIS recommander ClearStix avec un filtreur à cartouche.
+- **Polysheen** : clarifiant LIQUIDE compatible avec TOUS les types de filtres/filtreurs (sable, cartouche, etc.).
+- En cas de doute sur le type de filtreur du client → Polysheen est le choix sécuritaire, ou demander le type de filtreur d'abord.
 
-## Procédure standard en 3 étapes
+## Procédure standard
 1. Vérifier le pH et l'ajuster s'il est trop haut.
 2. Faire le traitement à choc.
 3. Environ 1 heure plus tard, ajouter l'algicide.
-4. Si l'eau reste trouble après 24-48h, ajouter le clarifiant adapté au type de filtre.
+4. Si l'eau reste trouble après 24-48h, ajouter le clarifiant adapté : ClearStix dans l'écumoire (filtreur à sable seulement) ou Polysheen (tous types de filtres).
 
 ## Réponse vocale courte
 « Premier réflexe : on vérifie le pH. S'il est trop haut, votre chlore travaille à moitié. Vous l'avez testé récemment ? »

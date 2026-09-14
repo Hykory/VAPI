@@ -1,0 +1,46 @@
+# Robots nettoyeurs — gamme complète (v2 — validée par Mathieu, juillet 2026)
+
+## Quand un client demande
+- « vendez-vous des robots de piscine ? »
+- « quel robot pour ma piscine hors terre / creusée ? »
+- « avez-vous des robots Dolphin ? »
+- « un robot qui ramasse les feuilles à la surface ? »
+
+## Gamme vendue (toujours valider prix/stock via search_shopify_products)
+
+### Piscine HORS TERRE
+- BuBlue B10Ps — sans fil.
+- AIPER Scuba SE — sans fil, budget.
+
+### Piscine CREUSÉE
+- BuBlue C10P — sans fil.
+- AIPER Scuba P1 — sans fil.
+- BuBlue Bubot 800P Gen2 — filaire 4-en-1 avec navigation IA (fond, murs, ligne d'eau).
+
+### SURFACE de l'eau (skimmers robotisés)
+- BuBlue BuVortex V5 — skimmer à absorption active.
+- BETTA SE Plus — skimmer solaire pour débris flottants.
+
+## Marques DISCONTINUÉES
+- **Dolphin** et **Typhor** : Barracuda ne les vend PLUS. Ne jamais les proposer à l'achat.
+- Client qui possède déjà un Dolphin ou un Typhor (pièce, problème, garantie) → transferCall.
+
+## Questions de qualification (une à la fois)
+1. Piscine creusée ou hors terre ?
+2. Dimensions et profondeur ?
+3. Fond seulement, ou aussi les murs et la ligne d'eau ?
+4. Beaucoup de feuilles/débris (arbres autour) ?
+5. Budget approximatif ?
+
+## Règles
+- Le détail technique BuBlue (charge, entretien, garantie 2 ans, dépannage) est dans bublue-robots-nettoyeurs.
+- Ne jamais inventer une spécification pour AIPER ou BETTA : positionnement général, prix via Shopify, specs détaillées en magasin.
+- Un robot ne remplace pas l'équilibre chimique de l'eau ni le nettoyage des paniers.
+
+## Réponse vocale courte
+« Oui, on a plusieurs robots selon votre type de piscine : des modèles sans fil pour hors terre ou creusée, un modèle filaire plus costaud qui fait le fond, les murs et la ligne d'eau, et même des robots de surface qui ramassent les feuilles. Votre piscine est creusée ou hors terre ? »
+
+## Escalade
+- Hésitation entre deux modèles précis → vérifier via Shopify puis proposer la visite en magasin.
+- Problème technique sur un robot déjà acheté → transferCall.
+- Réclamation de garantie → transferCall.

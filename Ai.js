@@ -1127,6 +1127,8 @@ async function sendLeadEmail(lead) {
       <table style="border-collapse:collapse;font-size:15px;">
         ${row("Nom", lead.name)}
         ${row("Téléphone", lead.phone)}
+        ${row("Numéro de l'afficheur", lead.caller_id)}
+        ${(lead.caller_id && lead.phone && lead.caller_id.replace(/\D/g, "").slice(-10) !== lead.phone.replace(/\D/g, "").slice(-10)) ? row("Attention", "Le numéro dicté ne correspond pas à l'afficheur : confirmer avec le client") : ""}
         ${row("Courriel", lead.email)}
         ${row("Projet", lead.project_type)}
         ${row("Budget", lead.budget)}
@@ -1171,6 +1173,8 @@ async function sendLeadEmail(lead) {
 
 app.post("/capture_lead", async (req, res) => {
   const { toolCallId, args } = getVapiToolCall(req);
+  // Numéro de l'afficheur (fourni par VAPI) : filet quand le modèle relit mal le numéro dicté.
+  const callerNumber = req.body?.message?.call?.customer?.number || null;
 
   try {
     const name = (args.name || "").toString().trim();
@@ -1178,6 +1182,7 @@ app.post("/capture_lead", async (req, res) => {
     const lead = {
       name,
       phone,
+      caller_id: callerNumber || "",
       email: (args.email || "").toString().trim(),
       project_type: (args.project_type || "").toString().trim(),
       budget: (args.budget || "").toString().trim(),
@@ -1409,6 +1414,79 @@ function mapFinishReason(stopReason) {
   return "stop";  // end_turn, stop_sequence, etc.
 }
 
+// ── FILETS DE SÉCURITÉ (revue des appels du 2026-09-14) ──
+// Constats : Haiku dit « Un instant, je vous transfère » SANS appeler le tool
+// (le client attend dans le vide), et dit « c'est noté, un conseiller va vous
+// rappeler » SANS appeler capture_lead (5 leads perdus sur 9 en une semaine).
+// Le code rattrape ces deux cas après la génération, sans latence ajoutée.
+const TRANSFER_HUMAN_NUMBER = process.env.TRANSFER_HUMAN_NUMBER || "+18196171695";
+
+// Le texte annonce un transfert (action, pas une offre ni un refus) ?
+function looksLikeFakeTransfer(text) {
+  const t = (text || "").toLowerCase();
+  if (!t) return false;
+  if (t.includes("?")) return false;                                   // une question = une offre, pas une action
+  if (/(ne peux pas|peux pas|pas possible|cannot|can't|unable|si vous voulez|voulez-vous|would you like|mathieu|matthieu|texto|sms|courriel)/i.test(t)) return false;
+  return /(je vous transf[eè]re|je vais vous transf[eé]rer|vous transf[eè]re à|un instant, je vous trans|transferring you|transfer you (now|to|right)|put you through|let me transfer|i'll transfer you)/i.test(t);
+}
+
+// Le texte confirme un rappel / une prise de coordonnées ?
+function looksLikeLeadConfirmation(text) {
+  const t = (text || "").toLowerCase();
+  return /(c['’]est (bien )?not[ée]|je vais enregistrer vos coordonn|un conseiller va vous rappeler|conseiller vous rappellera|va vous rappeler bient|that['’]s noted|noted down|an advis[eo]r will call you back|will call you back soon|i['’]ve got (all )?that noted)/i.test(t);
+}
+
+// La conversation contient déjà un capture_lead (appel ou résultat) ?
+function conversationHasLeadCapture(msgs) {
+  for (const m of msgs || []) {
+    if (m.role === "assistant" && (m.tool_calls || []).some(tc => tc.function?.name === "capture_lead")) return true;
+    if (m.role === "tool" && typeof m.content === "string" && /"saved"\s*:\s*true|Lead enregistré/i.test(m.content)) return true;
+  }
+  return false;
+}
+
+// Dernier message client : sert à savoir si on est en SMS/chat (pas de transfert possible).
+function lastUserText(msgs) {
+  for (let i = (msgs || []).length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (m.role === "user") return typeof m.content === "string" ? m.content : JSON.stringify(m.content || "");
+  }
+  return "";
+}
+
+// Courriel de secours « lead à vérifier » : une seule fois par appel.
+const leadFallbackSent = new Set();
+async function leadFallbackAlert({ body, callId, callerNumber, textOut }) {
+  const msgs = body.messages || [];
+  const firstUser = msgs.find(m => m.role === "user");
+  const key = callId || ((firstUser ? String(firstUser.content) : "").slice(0, 80) + (callerNumber || ""));
+  if (leadFallbackSent.has(key)) return;
+  leadFallbackSent.add(key);
+  if (leadFallbackSent.size > 500) leadFallbackSent.clear();
+
+  const keypad = msgs
+    .filter(m => m.role === "user" && /Keypad Entry/i.test(String(m.content)))
+    .map(m => String(m.content).replace(/\D/g, ""))
+    .filter(Boolean);
+  const recent = msgs
+    .filter(m => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
+    .slice(-12)
+    .map(m => (m.role === "user" ? "CLIENT : " : "BARRY : ") + m.content.trim().slice(0, 220))
+    .join("  |  ");
+
+  logEvent("lead_fallback_alert", { call_id: callId, has_caller: !!callerNumber, keypad_entries: keypad.length });
+  await sendLeadEmail({
+    name: "LEAD À VÉRIFIER (Barry a confirmé sans enregistrer)",
+    phone: keypad.length ? keypad[keypad.length - 1] : (callerNumber || "inconnu"),
+    caller_id: callerNumber || "",
+    project_type: "À confirmer d'après la transcription",
+    notes: "Barry a dit au client que c'était noté, mais l'outil capture_lead n'a pas été appelé. Entrées clavier : " + (keypad.join(", ") || "aucune") + ". Derniers échanges : " + recent + " || Dernière réponse de Barry : " + String(textOut || "").slice(0, 300),
+    channel: "voix (filet automatique)",
+  });
+  console.warn("[lead-fallback] courriel de secours envoyé (call=" + (callId || "?") + ")");
+}
+let chatBodyKeysLogged = false;
+
 // ── L'ENDPOINT custom-LLM ──
 app.post("/chat/completions", async (req, res) => {
   if (!ANTHROPIC_API_KEY) {
@@ -1421,6 +1499,16 @@ app.post("/chat/completions", async (req, res) => {
   const start = Date.now();
 
   const { system, messages, tools, temperature, max_tokens } = openaiToAnthropic(body);
+
+  // Contexte d'appel fourni par VAPI (numéro de l'afficheur, id d'appel) pour les filets.
+  const callInfo = body.call || body.metadata?.call || null;
+  const callerNumber = callInfo?.customer?.number || body.customer?.number || null;
+  const callId = callInfo?.id || null;
+  const isTextChannel = /\[CANAL: (SMS|CHAT)/i.test(lastUserText(body.messages));
+  if (!chatBodyKeysLogged) {
+    chatBodyKeysLogged = true;
+    console.log("[custom-llm] body keys:", Object.keys(body).join(","), "| call présent:", !!callInfo, "| customer:", !!callerNumber);
+  }
 
   const anthropicBody = {
     model: CUSTOM_LLM_MODEL,
@@ -1507,6 +1595,8 @@ app.post("/chat/completions", async (req, res) => {
   let toolCounter = -1;
   let stopReason = "end_turn";
   let buffer = "";
+  let textOut = "";              // texte complet généré (pour les filets de sécurité)
+  const toolNamesEmitted = [];   // tools réellement appelés dans cette réponse
 
   const handleEvent = (json) => {
     switch (json.type) {
@@ -1516,6 +1606,7 @@ app.post("/chat/completions", async (req, res) => {
         if (cb.type === "tool_use") {
           toolCounter += 1;
           toolIdxByBlock[json.index] = toolCounter;
+          toolNamesEmitted.push(cb.name);
           sendChunk({ tool_calls: [{
             index: toolCounter, id: cb.id, type: "function",
             function: { name: cb.name, arguments: "" },
@@ -1526,6 +1617,7 @@ app.post("/chat/completions", async (req, res) => {
       case "content_block_delta": {
         const d = json.delta || {};
         if (d.type === "text_delta") {
+          textOut += d.text || "";
           sendChunk({ content: d.text });
         } else if (d.type === "input_json_delta") {
           sendChunk({ tool_calls: [{
@@ -1563,7 +1655,28 @@ app.post("/chat/completions", async (req, res) => {
       }
     }
 
-    sendChunk({}, mapFinishReason(stopReason));
+    // ── Filets de sécurité ──
+    let finish = mapFinishReason(stopReason);
+    if (!isTextChannel && toolNamesEmitted.length === 0) {
+      // ① « Un instant, je vous transfère » sans tool → on injecte le tool de transfert.
+      const hasTransferTool = (body.tools || []).some(t => t.function?.name === "transfer_call_to_Human");
+      if (hasTransferTool && looksLikeFakeTransfer(textOut)) {
+        toolCounter += 1;
+        sendChunk({ tool_calls: [{
+          index: toolCounter, id: "call_auto_transfer_" + Date.now(), type: "function",
+          function: { name: "transfer_call_to_Human", arguments: JSON.stringify({ destination: TRANSFER_HUMAN_NUMBER }) },
+        }] });
+        finish = "tool_calls";
+        logEvent("auto_transfer_injected", { text: textOut.slice(0, 160) });
+        console.warn("[custom-llm] transfert annoncé sans tool → tool transfer_call_to_Human injecté");
+      }
+    }
+    // ② « c'est noté, on vous rappelle » sans capture_lead → courriel de secours à l'équipe.
+    if (!isTextChannel && !toolNamesEmitted.includes("capture_lead") && looksLikeLeadConfirmation(textOut) && !conversationHasLeadCapture(body.messages)) {
+      leadFallbackAlert({ body, callId, callerNumber, textOut }).catch(e => console.error("[lead-fallback] échec:", e.message));
+    }
+
+    sendChunk({}, finish);
     res.write("data: [DONE]\n\n");
     res.end();
     console.log(`[custom-llm] stream done in ${Date.now() - start}ms (stop=${stopReason}, tools=${toolCounter + 1})`);
@@ -2818,23 +2931,22 @@ setInterval(async () => {
 // │  13bis. BOÎTE VOCALE — Voicemail Twilio quand le poste 104 ne répond pas │
 // ╰───────────────────────────────────────────────────────────────────────╯
 //
-// CONTEXTE :
-//   Le numéro de transfert +1 819 617 1695 fait sonner le Yealink T53 (poste
-//   SIP 104) directement via Twilio. Twilio N'A PAS de boîte vocale native.
-//   On la fabrique donc ici : si le T53 ne répond pas dans le délai, Twilio
-//   joue un message d'accueil, enregistre le message du client, puis on
-//   l'envoie par courriel à info@piscinesbarracuda.com.
-//
-// CONFIG TWILIO REQUISE (dans le TwiML Bin du +18196171695) :
-//   <Response>
-//     <Dial timeout="20"
-//           action="https://vapi-production-0c30.up.railway.app/voicemail/after-dial"
-//           method="POST">
-//       <Sip>sip:104@barracuda.sip.twilio.com</Sip>
-//     </Dial>
-//   </Response>
-//   → timeout="20" = 20 s de sonnerie avant la bascule voicemail.
-//   → action = appelé par Twilio à la FIN du Dial (répondu OU non).
+// CONTEXTE (vérifié par API Twilio le 2026-09-14) :
+//   Le numéro de transfert +1 819 617 1695 n'utilise PLUS un TwiML Bin mais la
+//   Twilio Function « ring-escalate » du service serverless « yealink-outbound »
+//   (https://yealink-outbound-1768.twil.io) :
+//     étape 1 : sonne le poste SIP 104 seul pendant 10 s ;
+//     étape 2 : sonne 104 + 100 + 101 pendant 15 s ;
+//     non répondu → Function « voicemail-fallback » (Say + Record) qui POSTe ici
+//     sur /voicemail/recording-done et /voicemail/recording-ready.
+//   Le numéro de Mathieu (+1 819 412 7147) → Function « path_mathieu » (SIP 100,
+//   annonce chuchotée via Twilio Sync, alimentée par le tool save_whisper_context).
+//   La route /voicemail/after-dial ci-dessous reste disponible pour un <Dial>
+//   classique, mais n'est plus appelée par la config live.
+//   ⚠️ Constat semaine du 7 au 13 sept 2026 : 11 transferts sur 39 se sont
+//   terminés « no-answer 0 s » sans enregistrement de boîte vocale (le transfert
+//   VAPI est en mode blind-transfer / SIP REFER). À corriger côté VAPI
+//   (warm-transfer + fallbackPlan) après un appel test.
 
 // Helper : envoie le message vocal par courriel via le compte Resend info@.
 // Pièce jointe .mp3 SI les creds Twilio sont présents, sinon lien d'écoute seul.

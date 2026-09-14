@@ -15,8 +15,10 @@
 
 ### FLO / FL / FL1 / FL2 — Problème de flow d'eau
 - **Causes probables** : filtre encrassé, niveau d'eau trop bas, panier de skimmer plein, capteur de pression défaillant.
-- **Premier réflexe** : vérifier le niveau d'eau, nettoyer le filtre cartouche, vider le panier.
-- **Si persiste** → transferCall (capteur ou pompe).
+- **Procédure validée par Mathieu — à suggérer au client, dans l'ordre** :
+  1. Vérifier si la CARTOUCHE de filtre est propre (la nettoyer au besoin) et que le niveau d'eau est bon.
+  2. Retester le spa SANS la cartouche — en faisant bien attention que RIEN ne puisse être aspiré par le moteur via l'écumoire pendant le test.
+  3. Si le code est toujours là après ces tests → un APPEL DE SERVICE pourrait être nécessaire (tarifs : voir appels-de-service) → capture_lead ou transferCall.
 
 ### OH / HOT — Surchauffe
 - **Causes probables** : eau trop chaude, capteur de température défaillant, mauvaise circulation.
@@ -41,15 +43,8 @@
 - **Premier réflexe** : vérifier le niveau d'eau, faire couler la pompe manuellement.
 - → transferCall (risque d'endommager le chauffage si pas réglé vite).
 
-### T / tESt / « la température suivie de la lettre T » — Mode test / diagnostic
-- L'écran affiche un « T » (parfois « tESt ») à côté ou à la place de la température : le panneau est en **mode test / diagnostic**, PAS une lecture de température.
-- ⚠️ Ce n'est **PAS** une température en kelvins ni en Fahrenheit — ne jamais interpréter le « T » comme une unité de température.
-- **Cause probable** : le spa est passé en mode entretien/diagnostic, souvent après une coupure de courant ou une manipulation du panneau. Le manuel du spa demande généralement d'appeler le service.
-- **Premier réflexe** : couper l'alimentation du spa au disjoncteur ~30 secondes, puis rétablir, pour voir si l'affichage normal revient.
-- **Si le « T » persiste** → transferCall (intervention technique / mode test à désactiver par un technicien).
-
 ## ⚠️ À CONFIRMER PAR L'ÉQUIPE BARRACUDA
-- Codes spécifiques aux marques Bullfrog, Hydropool, Sundance (peuvent avoir des codes propriétaires en plus des codes Balboa standard).
+- Codes spécifiques aux marques Bullfrog, Hydropool, Lumi-O (peuvent avoir des codes propriétaires en plus des codes Balboa standard).
 - Procédure de réinitialisation que le client peut faire SEUL avant de transférer.
 - Y a-t-il un manuel d'utilisateur Barracuda standard à pointer ?
 

@@ -23,6 +23,9 @@
 
 ## Faits clés
 - Marques de spa distribuées par Barracuda : voir knowledge marques-distribuees.
+- MARQUES COUVERTES PAR LE SERVICE DE RÉPARATION (gamme récemment agrandie) : HYDROPOOL, BULLFROG et LUMI-O (modèles Spartiate, Phantom), peu importe où le spa a été acheté.
+- TOUTE AUTRE MARQUE : réparation offerte SEULEMENT si le spa a été acheté chez Barracuda. Demander où le spa a été acheté avant de proposer un rendez-vous.
+- EXCLUSION : nous ne réparons PAS les spas provenant de chez Trévi — incluant les spas MAÎTRE PISCINIER (gamme de Trévi) — ni les piscines semi-creusées Europea de Trévi. Ne JAMAIS dénigrer Trévi ni donner la raison — refuser poliment et suggérer de contacter le détaillant d'origine.
 - Codes d'erreur courants : voir knowledge codes-erreur-spa.
 - Réparations techniques (chauffage, board électronique, jet brisé) → transfert humain obligatoire.
 - Pièces standard (filtre cartouche, joint, panier) → search_shopify_products possible.

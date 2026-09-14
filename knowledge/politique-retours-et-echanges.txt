@@ -1,0 +1,48 @@
+# Politique de retours, échanges et remboursements
+
+Source : politique officielle publiée sur piscinesbarracuda.com.
+
+## Quand un client demande
+- « est-ce que je peux retourner ce produit ? »
+- « je veux un remboursement »
+- « j'ai acheté le mauvais produit »
+- « pouvez-vous échanger mon article ? »
+- « le produit que j'ai reçu est défectueux / endommagé »
+- « je peux-tu ramener mon chlore ? »
+
+## RÈGLE ABSOLUE — Produits chimiques
+- AUCUN retour de produits chimiques n'est accepté, qu'ils soient OUVERTS ou NON.
+- Raison : sécurité et conformité réglementaire.
+- Explication à donner si le client insiste : « Pour des raisons légales, nos produits chimiques sont entreposés de façon sécuritaire et inspectés avant la mise en tablette. C'est pourquoi nous ne reprenons aucun produit chimique. »
+- Ne jamais laisser entendre qu'une exception est possible; pour un cas litigieux → transferCall.
+
+## Autres produits — conditions de retour
+- Délai : 30 jours à compter de la date d'achat.
+- Preuve d'achat : facture ou reçu original OBLIGATOIRE.
+- État : emballage d'origine, produit non utilisé, en parfait état de revente.
+- Remboursement : après réception et inspection du retour; crédit sur le mode de paiement original (délai selon l'institution bancaire).
+
+## Échanges
+- Échange SEULEMENT si l'article est défectueux ou endommagé, contre le même article.
+- Démarche : écrire à info@piscinesbarracuda.com ou appeler le magasin.
+
+## Ce que l'assistant ne fait JAMAIS
+- Promettre un remboursement ou approuver un retour lui-même — c'est l'équipe qui inspecte et décide.
+- Inventer une exception (produit chimique, hors délai, sans reçu).
+- Traiter un remboursement de commande en ligne (voir shopify-products-and-webhook → transferCall).
+
+## Gros items (confirmé par Mathieu, juillet 2026)
+- En général, les gros items suivent la MÊME politique de retour (30 jours, conditions ci-dessus).
+- EXCEPTIONS — VENTE FINALE : les THERMOPOMPES et les SPAS (aucun retour, aucun échange).
+- Thermopompe avec un problème : le client doit contacter directement le FABRICANT (garantie du fabricant). Barracuda peut l'aider pour les pièces et le dépannage de premier niveau (voir thermopompes-et-chauffage).
+
+- Les produits en LIQUIDATION / démo : VENTE FINALE.
+
+## Réponse vocale courte
+Produit chimique : « Malheureusement, on ne peut accepter aucun retour de produits chimiques, même non ouverts — c'est une question de sécurité et de réglementation. Par contre, si le produit ne convient pas à votre situation, on peut regarder ensemble ce qu'il vous faut vraiment. »
+Autre produit : « Oui, c'est possible dans les 30 jours suivant l'achat, avec votre facture, si le produit est non utilisé et dans son emballage d'origine. L'équipe l'inspecte au magasin et le remboursement se fait sur votre mode de paiement original. »
+
+## Escalade
+- Produit défectueux ou endommagé → transferCall (ou courriel info@).
+- Litige, insatisfaction, demande d'exception → transferCall.
+- Retour d'une commande en ligne avec livraison → transferCall.

@@ -1,53 +1,58 @@
-# Marques distribuées et marques connues par Barracuda
+# Marques distribuées et marques connues par Barracuda (v2 — validée par Mathieu, juillet 2026)
 
 ## Quand un client demande
-- « avez-vous des spas Bullfrog »
+- « avez-vous des spas Bullfrog / Viking / Sundance »
 - « est-ce que vous vendez Hydropool »
-- « avez-vous des pompes Helios »
+- « avez-vous du Hayward / Pentair »
 - « quelles marques de spa avez-vous »
 - « est-ce que vous distribuez X »
-- « avez-vous des produits Bayrol »
-- « est-ce que la marque Y est compatible »
 
-## Marques CONFIRMÉES dans le catalogue Barracuda
+## SPAS — règle claire
+- **Hydropool** est LA marque de spas et spas de nage NEUFS vendue par Barracuda (spas auto-nettoyants; séries Serenity et Signature; spas de nage AquaPlay, AquaSport, AquaTrainer, Executive).
+- **Bullfrog, Viking, DreamMaker, Sundance : PAS de spas neufs.** Barracuda offre les PIÈCES seulement (gros inventaire de pièces Bullfrog et Hydropool; JetPaks Bullfrog au catalogue). Si un client possède un de ces spas, on peut l'aider en pièces et service — mais ne JAMAIS proposer ces marques à l'achat neuf.
+- Réponse type : « Pour les spas neufs, on est distributeur Hydropool. Par contre, si vous avez déjà un [marque], on a les pièces pour vous. »
+- SERVICE / RÉPARATION de spas : couvre Hydropool, Bullfrog et Lumi-O (Spartiate/Phantom) peu importe la provenance; les autres marques seulement si le spa a été acheté chez Barracuda; JAMAIS les spas Trévi ou Maître Piscinier (gamme Trévi) ni les piscines semi-creusées Europea de Trévi (refuser poliment, sans dénigrer — voir spa-repair-and-troubleshooting).
 
-### Spas (haut de gamme)
-- **Bullfrog** — spas modulaires avec jets interchangeables (JetPak).
-- **Hydropool** — spas auto-nettoyants, marque pionnière canadienne.
-- **Sundance** — spas haut de gamme américains.
+## PISCINES
+- **Mova** et **Azoria** — piscines creusées en fibre de verre (coques).
+- **Soprema** — membrane haut de gamme (~65 millièmes, voir soprema-fiberglass-expertise).
+- **Atlantis** et **Onyx** — GAMMES DE PRODUITS pour piscine (pas des marques de piscines !). Ne jamais les présenter comme des piscines hors terre.
 
-### Équipement piscine
-- **Hélios** — pompes de piscine (mentionné explicitement dans les conversations clients).
+## ÉQUIPEMENT PISCINE ET CHAUFFAGE
+- **Hayward** — équipement piscine (pompes, filtres, chauffage, sel) — largement en stock.
+- **Pentair** — équipement piscine — en stock.
+- **Nirvana** — GAMME COMPLÈTE distribuée : thermopompes (séries NE, FC, PV), pompes Silensor/SPV, filtres, ionisation Purifitec — incluant les pièces SUR COMMANDE.
+- **Hélios** — pompes et pièces (Barracuda ne vend PLUS les filtreurs Hélios).
+- **Jacuzzi Carvin** — pièces d'équipement de piscine (pompes, etc.) EN STOCK.
 
-### Membranes / piscines creusées
-- **Soprema** — membrane haut de gamme exclusive (~65 millièmes, voir knowledge soprema-fiberglass-expertise).
+## COMPOSANTES DE SPA (fabricants d'équipements — PAS des marques de spa)
+- **Balboa** — systèmes de contrôle, claviers, pièces (un « spa Balboa », ça n'existe pas — voir pieces-de-spas).
+- **Gecko** — systèmes de contrôle et pièces.
+- **Covana** — couverts de spa motorisés/automatisés.
 
-### Chimie / produits d'entretien
-- **Bayrol** — produits chimiques pour piscine et spa.
-- **Bioguard** — produits chimiques.
-- **AlgaComplete** — algicide breveté (recommandation maison Barracuda).
-- **ClearStix** — agent clarifiant pour filtres à sable.
-- **Polishing** — clarifiant liquide pour filtres à cartouche.
+## CHIMIE / ENTRETIEN
+- **Bioguard** et **SpaGuard** (gamme spa de Bioguard).
+- **Coral Spa** — produits d'entretien pour spa.
+- **Chem Expert**.
+- **AlgaComplete** — algicide breveté (recommandation maison).
+- **ClearStix** — bâtons clarifiants à déposer dans l'ÉCUMOIRE; compatibles UNIQUEMENT avec les filtreurs à SABLE (jamais cartouche).
+- **Polysheen** — clarifiant liquide compatible avec TOUS les types de filtres/filtreurs.
+- **Taylor** — trousses d'analyse d'eau.
+- ⚠️ Bayrol : PAS distribué (retiré de la liste).
 
-## ⚠️ À CONFIRMER PAR L'ÉQUIPE BARRACUDA
-- **Hayward** — équipement piscine, très répandu au QC. Distribué ou pas ?
-- **Pentair** — équipement piscine, idem.
-- **Jacuzzi**, **Coast Spas**, **Beachcomber** — spas, à confirmer.
-- **Marques de filtres cartouche tierces** (Unicel, Pleatco) — souvent compatibles avec n'importe quel spa.
+## ROBOTS NETTOYEURS
+- **BuBlue**, **AIPER**, **BETTA** (voir robots-nettoyeurs).
+- Dolphin et Typhor : DISCONTINUÉS — ne plus proposer à la vente; client qui en possède un → transferCall pour pièces/service.
 
-## Faits clés
-- Si un client demande une marque NON listée ci-dessus → ne PAS affirmer qu'on l'a OU qu'on l'a pas. Toujours vérifier via search_shopify_products avec le nom de la marque.
-- Barracuda peut avoir des pièces compatibles MÊME pour des marques qu'elle ne distribue pas en neuf.
+## Marques NON confirmées
+- **Jacuzzi** (spas), **Coast Spas**, **Beachcomber** : spas pas vendus — des PIÈCES compatibles peuvent exister. Vérifier via search_shopify_products sans affirmer. (Les pièces d'équipement de piscine Jacuzzi Carvin, elles, sont EN STOCK.)
+- Filtres compatibles tiers (Unicel, Pleatco) : souvent compatibles toutes marques — vérifier via search_shopify_products.
 
-## Réponse vocale courte
-
-Client qui demande une marque CONFIRMÉE :
-« Oui, on distribue [marque]. Voulez-vous que je vérifie ce qu'on a en stock présentement ? »
-
-Client qui demande une marque NON LISTÉE :
-« Laissez-moi vérifier dans notre boutique. » → puis appeler search_shopify_products.
+## Règles
+- Marque non listée → ne PAS affirmer qu'on l'a ou pas : « Laissez-moi vérifier dans notre boutique » → search_shopify_products.
+- Barracuda a souvent des pièces compatibles même pour des marques non distribuées en neuf.
 
 ## Escalade
-- Demande spécifique sur une marque pour projet de piscine creusée → transferCall.
-- Demande de spa complet (achat neuf) → orienter vers visite magasin OU transferCall.
-- Compatibilité technique entre marques différentes → transferCall.
+- Marque pour projet de piscine creusée → transferCall.
+- Achat de spa neuf → orienter vers Hydropool, visite magasin OU transferCall.
+- Compatibilité technique entre marques → transferCall.

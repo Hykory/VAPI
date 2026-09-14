@@ -1,0 +1,57 @@
+# Thermopompes et chauffage de piscine (validé par Mathieu, juillet 2026)
+
+## Quand un client demande
+- « vendez-vous des thermopompes ? »
+- « quelle grosseur de thermopompe pour ma piscine ? »
+- « ma thermopompe ne chauffe pas / fait de la glace / affiche un code »
+- « comment hiverner ma thermopompe ? »
+- « chauffe-eau au gaz ou thermopompe ? »
+- « vendez-vous des refroidisseurs (chillers) ? »
+
+## Ce que Barracuda vend
+- Thermopompes NIRVANA — gamme complète distribuée, pièces SUR COMMANDE incluses :
+  - Série NE (incluant la NE20 Plug and Play, entrée de gamme).
+  - Série FC (milieu/haut de gamme, option WiFi disponible).
+  - Série PV (haut de gamme).
+- Refroidisseurs / chillers (ex. 105k BTU) pour garder l'eau fraîche en canicule — OUI, on en vend.
+- Housses hivernales Nirvana (séries NE et FC).
+- Pièces : interrupteurs de débit (flow switch), cartes de contrôle, unions, ventilateurs, relais, etc. — si la pièce n'est pas en stock, elle se commande.
+- Toujours confirmer modèles, prix et stock via search_shopify_products. Ne jamais citer un prix de mémoire.
+
+## Installation
+- OUI, Barracuda offre l'installation de thermopompe.
+- Un ÉLECTRICIEN est requis pour le branchement.
+- IMPORTANT : le prix d'installation N'INCLUT PAS la base (dalle/support). Le mentionner quand on parle d'installation.
+- Prix d'installation : jamais de montant au téléphone → soumission / conseiller.
+
+## Garantie et retours
+- Thermopompes Nirvana : garantie de 5 à 10 ans selon le modèle. EXCEPTION : la NE20 (Plug and Play) = 2 ans.
+- VENTE FINALE : les thermopompes ne sont ni reprises ni échangées.
+- Problème ou réclamation de garantie : le client doit contacter directement le FABRICANT. Barracuda peut l'aider pour les pièces (en stock ou sur commande) et le dépannage de premier niveau.
+
+## Choisir la bonne grosseur
+- CALCUL SÉCURITAIRE (règle maison Barracuda) : nombre de LITRES de la piscine × 1,5 = puissance en BTU.
+  Exemple : piscine de 60 000 litres → environ 90 000 BTU.
+- Barry PEUT partager ce calcul comme règle de pouce. Pour le choix FINAL du modèle : recueillir les dimensions et diriger vers un conseiller (l'exposition au vent/soleil et la région jouent aussi).
+- Une toile solaire réduit beaucoup les pertes de chaleur — bon complément à proposer (en vente au catalogue).
+- La toile solaire LIQUIDE (Heat Capture) est aussi une option offerte.
+
+## Réparation — RÈGLE IMPORTANTE
+- Barracuda DISTRIBUE les thermopompes, mais seuls les FRIGORISTES certifiés sont qualifiés pour les réparer.
+- Barry ne prend donc PAS de rendez-vous de réparation de thermopompe : il aide au dépannage de premier niveau, aux pièces et à la garantie, puis transfère à un conseiller pour orienter le client.
+- Ne jamais recommander une entreprise tierce nommément (règle générale) — le conseiller s'en charge.
+
+## Conseils généraux (vulgarisation permise)
+- Une thermopompe est efficace quand l'air est au-dessus d'environ 10 °C — optimale de mai à septembre au Québec (voir blog-conseils : ~60-70 % moins cher à opérer qu'un chauffe-eau au gaz).
+- À l'automne : la thermopompe doit être vidangée de son eau avant le gel (risque de fissurer l'échangeur), puis couverte d'une housse hivernale. L'hivernage de la thermopompe est INCLUS dans le service de fermeture Barracuda.
+- Dépannage premier niveau « ma thermopompe ne chauffe pas » : vérifier que la pompe de filtration roule (débit d'eau suffisant — un filtre sale peut couper le débit), que la température demandée est plus haute que celle de l'eau, et que l'air est assez chaud. Du givre léger peut être normal; un bloc de glace ne l'est pas.
+- Codes d'erreur : demander le code exact affiché et la série (NE/FC/PV) → si une simple vérification de débit ne règle pas → transferCall.
+
+## Réponse vocale courte
+« Oui, on distribue toute la gamme des thermopompes Nirvana, avec l'installation, les housses d'hivernage et les pièces. Pour la puissance, la règle sécuritaire est d'environ une fois et demie le nombre de litres de votre piscine en BTU — donnez-moi vos dimensions et je prends vos coordonnées pour qu'un conseiller vous confirme le bon modèle. »
+
+## Escalade
+- Dimensionnement précis / soumission d'installation → capture_lead ou transferCall.
+- Réparation (frigoriste requis), code d'erreur persistant → transferCall.
+- Question de garantie → diriger vers le fabricant; besoin d'une pièce → search_shopify_products ou transferCall.
+- Question gaz (permis, ventilation) → transferCall.

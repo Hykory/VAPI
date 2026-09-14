@@ -1,0 +1,38 @@
+# Infos pratiques — adresse, heures, coordonnées, zone de service
+
+## Quand un client demande
+- « êtes-vous ouverts ? » / « à quelle heure fermez-vous ? »
+- « où êtes-vous situés ? » / « c'est où votre magasin ? »
+- « comment se rendre chez vous »
+- « avez-vous un courriel ? »
+- « est-ce que vous desservez [ville] ? »
+- « êtes-vous ouverts le dimanche ? »
+
+## Coordonnées (source : site officiel)
+- Adresse : 110 rue Georges, suite 203, Gatineau (Québec) J8M 1A2 — Place du Marché, secteur Masson-Angers (près de l'Encan Masson).
+- Téléphone : (819) 617-4343 — c'est le SEUL numéro valide. Ne JAMAIS donner le (819) 617-4643 : c'est une coquille qui traîne encore à certains endroits en ligne.
+- Courriel : info@piscinesbarracuda.com.
+- Site web : piscinesbarracuda.com (ne jamais épeler l'URL complète à voix haute; dire « piscines barracuda point com »).
+- Facebook : Piscines Barracuda. Instagram : barracuda_piscines_et_spas.
+
+## Heures d'ouverture régulières
+- Lundi au vendredi : 9 h à 17 h.
+- Samedi : 9 h à 16 h.
+- Dimanche : 10 h à 16 h.
+
+⚠️ À CONFIRMER PAR L'ÉQUIPE BARRACUDA
+- Heures d'hiver / basse saison différentes ? Périodes de fermeture (jours fériés, vacances) ?
+
+## Zone de service
+- Magasin et livraison locale : Gatineau, Outaouais et l'est de l'Ontario (Ottawa et environs).
+- Service d'ouverture et de fermeture à domicile : tout Gatineau et l'est, d'Aylmer (ouest) jusqu'à Papineauville (est).
+- Projets de piscines creusées en fibre de verre (Mova, Azoria) : livraison partout au Québec, en Ontario et dans les Maritimes.
+- En cas de doute sur une ville précise → prendre les coordonnées (capture_lead) pour qu'un conseiller confirme.
+
+## Règles
+- Toujours donner les heures de la journée demandée, pas toute la semaine d'un coup.
+- Ne jamais garantir qu'un employé précis est présent (voir equipe-barracuda).
+- Si le client veut passer « là là » proche de la fermeture, l'inviter à appeler avant ou à venir tôt le lendemain.
+
+## Réponse vocale courte
+« On est au 110 rue Georges à Gatineau, dans le secteur Masson-Angers, Place du Marché. Aujourd'hui on est ouverts de [heures du jour]. Voulez-vous que je vous aide avec autre chose avant votre visite ? »

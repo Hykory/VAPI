@@ -1,0 +1,29 @@
+# Financement
+
+## Quand un client demande
+- « offrez-vous du financement ? »
+- « est-ce que je peux payer en plusieurs versements ? »
+- « avez-vous des plans de paiement ? »
+- « c'est quoi vos options de financement pour un spa ? »
+
+## Faits clés
+- OUI, Barracuda offre du financement via Ma Financière (mafinanciere.com) — lien dans la section Service clientèle du site web.
+- Pertinent surtout pour les gros achats : spas, spas de nage, thermopompes, projets de piscine.
+- L'approbation, les taux et les modalités relèvent de Ma Financière, pas de Barracuda.
+
+## Ce que l'assistant ne fait JAMAIS
+- Citer un taux d'intérêt, une mensualité ou une durée précise.
+- Promettre une approbation.
+- Prendre des informations financières personnelles au téléphone (NAS, numéro de carte, revenus).
+
+## Modalités confirmées (Mathieu, juillet 2026)
+- Financement disponible à partir de 500 $ d'achat seulement.
+- PLUSIEURS TAUX sont offerts — les détails se donnent EN MAGASIN.
+- Ne jamais citer un taux ou une mensualité : diriger vers le magasin pour la demande.
+
+## Réponse vocale courte
+« Oui, on offre du financement par l'entremise de Ma Financière, à partir de cinq cents dollars d'achat — pour les spas, les thermopompes, les projets de piscine et plus. Plusieurs taux sont offerts et les détails se règlent en magasin avec un conseiller. Voulez-vous que je prenne vos coordonnées pour qu'on vous rappelle ? »
+
+## Escalade
+- Questions précises sur taux/modalités → conseiller (transferCall ou capture_lead).
+- Client rendu à l'étape d'achat d'un spa ou projet → capture_lead ou transferCall.

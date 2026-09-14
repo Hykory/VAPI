@@ -1,0 +1,36 @@
+# Problèmes d'eau de SPA (mousse, eau laiteuse, odeur, biofilm)
+
+Complément aux fichiers eau de piscine (water-green-cloudy) — un spa se comporte différemment : petit volume, eau chaude, forte charge de baigneurs.
+
+## Quand un client demande
+- « mon spa fait de la mousse »
+- « l'eau de mon spa est laiteuse / trouble »
+- « mon spa sent mauvais / sent le chimique »
+- « ma peau pique après le spa »
+- « à quelle fréquence vider mon spa ? »
+- « chlore ou brome dans mon spa ? »
+
+## Faits clés
+- VIDANGE : l'eau d'un spa se change environ aux 3 à 4 mois (plus souvent si usage intensif). Beaucoup de problèmes persistants se règlent simplement par une vidange.
+- MOUSSE : causée par l'accumulation de résidus (savon, cosmétiques, huiles corporelles, détergent des maillots) et/ou une eau vieille. Solutions : anti-mousse en appoint, mais la vraie solution est un traitement oxydant et souvent une vidange. Prévention : rincer les maillots à l'eau claire, douche avant la baignade.
+- EAU LAITEUSE : filtre encrassé (nettoyer/dégraisser la cartouche), désinfectant bas, ou eau en fin de vie.
+- ODEUR forte de « chlore » : paradoxalement un signe de chloramines (désinfectant épuisé) → traitement choc, pas moins de produit.
+- BIOFILM : film bactérien dans la tuyauterie; se manifeste par mousse/odeur récurrentes malgré une bonne chimie. Solution : produit de purge des conduites AVANT la vidange, puis remplissage propre.
+- BROME vs CHLORE en spa : le brome est plus stable en eau chaude et moins odorant — souvent recommandé en spa (voir blog-conseils). Le monopersulfate (oxygène actif) est idéal comme choc après baignade.
+- PAS de stabilisant (acide cyanurique) dans un spa.
+- Produits SpaGuard et Coral Spa au catalogue → vérifier via search_shopify_products.
+- L'analyse d'eau GRATUITE en magasin s'applique aussi aux spas — toujours la proposer pour un problème persistant.
+
+## Séquence de diagnostic (une question à la fois)
+1. Depuis combien de temps l'eau n'a pas été changée ?
+2. Brome ou chlore ? Dernier taux mesuré ?
+3. La cartouche de filtre a été nettoyée quand ?
+4. Le problème revient-il même après traitement ?
+
+## Réponse vocale courte
+« Bonne question. En spa, la première chose qu'on regarde, c'est l'âge de l'eau : passé trois ou quatre mois, bien des problèmes de mousse ou d'odeur se règlent par une vidange avec une purge des conduites. Ça fait combien de temps que l'eau est là ? »
+
+## Escalade
+- Problème persistant après vidange + chimie correcte → analyse en magasin (apporter un échantillon).
+- Irritation cutanée importante → recommander de cesser la baignade et analyse en magasin.
+- Problème mécanique associé (chauffage, jets) → voir spa-repair-and-troubleshooting.

@@ -38,14 +38,14 @@ La plupart des modèles sont compatibles avec les piscines hors terre et creusé
 
 ## Guide de sélection
 
-Barracuda offre deux modèles de robots BUBLUE :
+Gamme BUBLUE offerte par Barracuda (voir le knowledge robots-nettoyeurs pour la gamme complète toutes marques) :
 
-* Piscine hors terre → **BUBLUE B10Ps** (sans fil) — 399,99 $.
-* Piscine creusée → **BUBLUE C10P** (sans fil) — 999,99 $.
+* Piscine hors terre → **BUBLUE B10Ps** (sans fil).
+* Piscine creusée → **BUBLUE C10P** (sans fil).
+* Piscine creusée, haut de gamme → **BUBLUE Bubot 800P Gen2** (filaire 4-en-1, navigation IA : fond, murs, ligne d’eau).
+* Surface de l’eau → **BUBLUE BuVortex V5** (skimmer à absorption active).
 
-Pour bien orienter le client, demander si la piscine est hors terre ou creusée, puis les dimensions, la profondeur et la quantité de débris. Toujours confirmer le prix et la disponibilité exacts avec `search_shopify_products`. Ne jamais proposer un modèle que Barracuda ne vend pas (s'en tenir au B10Ps et au C10P).
-
-Note de reconnaissance (transcription téléphonique) : un client ou la transcription peut déformer les noms — « BWT B10PS », « B10 PS », « C10XPS », « C10 X ». Ce sont les robots BUBLUE B10Ps (hors terre) et C10P (creusée). Barracuda ne vend PAS de robots de marque « BWT » : ne cherche pas un modèle BWT, comprends qu'il s'agit du BUBLUE.
+Pour bien orienter le client, demander si la piscine est hors terre ou creusée, puis les dimensions, la profondeur et la quantité de débris. Toujours confirmer le prix et la disponibilité exacts (jamais de prix de mémoire) avec `search_shopify_products`. Ne jamais proposer un modèle que Barracuda ne vend pas.
 
 ## Fonctionnalités importantes
 
@@ -62,21 +62,10 @@ Durée — varie selon le modèle. Toujours consulter les spécifications du mod
 * B10Ps : environ 120 minutes.
 * C10P : jusqu'à 240 minutes.
 
-Recharge : environ 3 heures (source : fiche produit Barracuda / manuels BUBLUE).
+Recharge : généralement entre 3 et 4 heures selon le modèle.
 
-* B10Ps : 3 heures (batterie 7800 mAh, 11,1 V, 2 moteurs, autonomie 120 min).
+* B10Ps : environ 2,5 heures.
 * C10P : environ 3 heures.
-
-## Voyants lumineux et bouton d'alimentation
-
-Bouton d'alimentation (Power) : les robots BUBLUE fonctionnent avec UN seul bouton (marche/arrêt et démarrage du cycle).
-⚠️ À CONFIRMER PAR L'ÉQUIPE BARRACUDA : l'emplacement physique exact du bouton sur le B10Ps et le C10P (dessus, dessous, sous un cache étanche). Tant que ce n'est pas confirmé ici, NE DEVINE PAS où il est et NE CONFIRME PAS la supposition du client (voir « Règles importantes pour l'agent »).
-
-Voyant de charge :
-* C10P : pendant la charge, le voyant VERT clignote ; lorsqu'il reste VERT FIXE, la charge est terminée. (Source : manuel BUBLUE C10/C10P.)
-* B10Ps : voyant d'état multicolore. ⚠️ À CONFIRMER PAR L'ÉQUIPE : le code de couleurs exact du B10Ps (couleur en charge vs. couleur chargé).
-
-Rappel : le robot doit être ÉTEINT pour se charger, et ne doit jamais être mis en marche hors de l'eau.
 
 ## Utilisation du robot
 
@@ -157,8 +146,6 @@ La majorité des robots BUBLUE sont couverts par une garantie limitée de 2 ans 
 ## Règles importantes pour l'agent
 
 * Ne jamais inventer une spécification.
-* Pour l'emplacement physique d'un bouton ou d'une pièce que cette fiche ne précise pas : dis clairement que tu veux confirmer l'emplacement exact plutôt que de deviner. Ne valide JAMAIS la supposition du client (« oui, c'est ça le bouton ») si l'information n'est pas écrite dans cette fiche.
-* Si le client reste bloqué sur une manipulation physique après deux ou trois échanges sans résolution, propose de transférer à un technicien ou de prendre ses coordonnées pour un rappel — n'improvise pas d'instructions génériques et ne fais pas durer l'appel.
 * Si le modèle exact n'est pas connu, demander le numéro du modèle.
 * Si le client hésite entre plusieurs robots, demander : piscine creusée ou hors terre, dimensions, profondeur, présence de feuilles importantes, budget approximatif.
 * Si la réponse n'est pas dans la base de connaissances, transférer au service à la clientèle.

@@ -1,0 +1,25 @@
+# Couvercles de spa (spa covers) — produit sur mesure, pas en ligne
+
+## Quand un client demande
+- « un couvercle pour mon spa »
+- « un cover de spa », « une toile de spa », « un couvert de spa »
+- « le prix d'un couvercle de spa Jacuzzi / Bullfrog / Hydropool / Sundance / Catalina »
+- « mon couvercle est lourd, gorgé d'eau, déchiré »
+
+## Ce qu'il faut savoir
+- Les couvercles de spa sont fabriqués SUR MESURE selon les dimensions exactes du spa (longueur, largeur, rayon des coins, hauteur de jupe, côté de la pliure) et sa marque ou son modèle.
+- Ils ne sont PAS vendus sur la boutique en ligne : une recherche search_shopify_products qui ne trouve rien est NORMALE. Ne cherche pas plus d'une fois, et ne dis jamais « on n'en vend pas » : on en vend, mais sur commande.
+- Le prix dépend des dimensions, de l'épaisseur de la mousse et des options : Barry ne donne PAS de prix. Un conseiller fait la soumission.
+- Délai typique de fabrication : plusieurs semaines. Ne pas promettre de date.
+
+## Ce que Barry doit faire
+1. Confirmer qu'on offre les couvercles sur mesure.
+2. Demander la marque et, si le client le sait, le modèle du spa. S'il a les dimensions (longueur × largeur en pouces), les noter.
+3. Prendre ses coordonnées avec capture_lead (project_type : « Couvercle de spa sur mesure », notes : marque, modèle, dimensions), ou inviter le client à passer en magasin avec les mesures ou une photo du couvercle actuel.
+
+## Réponse vocale courte
+« Les couvercles de spa, on les fait sur mesure selon les dimensions exactes de votre spa, donc ils ne sont pas en ligne. Je peux prendre vos coordonnées avec la marque et le modèle, et un conseiller vous rappelle avec une soumission. C'est quel modèle de spa ? »
+
+## Signes qu'un couvercle est à remplacer
+- Devenu très lourd (mousse gorgée d'eau), affaissé au centre, vinyle craqué ou déchiré, odeur, coutures ouvertes.
+- Un couvercle gorgé d'eau isole mal et fait grimper la facture de chauffage.

@@ -1121,6 +1121,30 @@ async function sendLeadEmail(lead) {
   const row = (label, val) =>
     val ? `<tr><td style="padding:4px 12px 4px 0;font-weight:bold;white-space:nowrap;">${escapeXml(label)}</td><td style="padding:4px 0;">${escapeXml(val)}</td></tr>` : "";
 
+  // Bloc « compte client Shopify » : trois états (non vérifié / trouvé / pas trouvé / erreur).
+  const s = lead.shopify;
+  const shopifyBlock = !s
+    ? ""
+    : s.found
+      ? `<div style="margin-top:16px;padding:12px;background:#f0f7f4;border-radius:6px;">
+           <h3 style="margin:0 0 8px;color:#0a7a55;font-size:15px;">👤 Compte client Shopify existant</h3>
+           <table style="border-collapse:collapse;font-size:14px;">
+             ${row("Nom au dossier", s.name)}
+             ${row("Courriel", s.email)}
+             ${row("Téléphone au dossier", s.phone)}
+             ${row("Adresse au dossier", s.address)}
+             ${row("Commandes", s.orders_count)}
+             ${row("Total dépensé", s.amount_spent)}
+             ${row("Client depuis", s.created_at)}
+             ${row("Tags", s.tags)}
+             ${row("Note au dossier", s.note)}
+           </table>
+           ${s.admin_url ? `<p style="margin:8px 0 0;font-size:13px;"><a href="${escapeXml(s.admin_url)}">Ouvrir la fiche client dans Shopify →</a></p>` : ""}
+         </div>`
+      : s.error
+        ? `<p style="margin-top:12px;color:#b4593b;font-size:13px;">⚠️ La recherche du compte Shopify a échoué : ${escapeXml(s.error)}</p>`
+        : `<p style="margin-top:12px;color:#888;font-size:13px;">Aucun compte client Shopify trouvé pour ce numéro (nouveau client, ou numéro non enregistré).</p>`;
+
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;">
       <h2 style="color:#0a7a55;">🎯 Nouveau lead Barracuda</h2>
@@ -1129,6 +1153,7 @@ async function sendLeadEmail(lead) {
         ${row("Téléphone", lead.phone)}
         ${row("Numéro de l'afficheur", lead.caller_id)}
         ${(lead.caller_id && lead.phone && lead.caller_id.replace(/\D/g, "").slice(-10) !== lead.phone.replace(/\D/g, "").slice(-10)) ? row("Attention", "Le numéro dicté ne correspond pas à l'afficheur : confirmer avec le client") : ""}
+        ${row("Adresse", lead.address)}
         ${row("Courriel", lead.email)}
         ${row("Projet", lead.project_type)}
         ${row("Budget", lead.budget)}
@@ -1137,6 +1162,7 @@ async function sendLeadEmail(lead) {
         ${row("Canal", lead.channel)}
         ${row("Reçu le", nowHuman)}
       </table>
+      ${shopifyBlock}
       <p style="color:#888;font-size:12px;margin-top:16px;">
         Lead capturé automatiquement par l'assistant IA. Rappelle le client pour lui donner un estimé.
       </p>
@@ -1171,6 +1197,58 @@ async function sendLeadEmail(lead) {
   }
 }
 
+// ── Enrichissement lead : cherche un compte client Shopify existant par téléphone ──
+// Vérifié le 2026-09-18 : le token lit les clients (champs protégés inclus), le
+// téléphone est stocké en E.164 « +1XXXXXXXXXX », la recherche « phone:+1… » marche.
+// Renvoie TOUJOURS un objet (jamais d'exception) → non bloquant pour la capture du lead.
+async function lookupShopifyCustomerByPhone(...phones) {
+  const tried = new Set();
+  for (const raw of phones) {
+    const d = String(raw || "").replace(/\D/g, "").slice(-10);
+    if (d.length !== 10 || tried.has(d)) continue;
+    tried.add(d);
+    try {
+      const data = await fetchShopifyGraphQL(
+        `query($q: String!) {
+          customers(first: 1, query: $q) {
+            edges { node {
+              id firstName lastName email phone numberOfOrders
+              amountSpent { amount currencyCode }
+              createdAt tags note
+              defaultAddress { address1 address2 city provinceCode zip }
+            } }
+          }
+        }`,
+        { q: `phone:+1${d}` }
+      );
+      const node = data?.customers?.edges?.[0]?.node;
+      if (node) {
+        const a = node.defaultAddress || {};
+        const idNum = String(node.id || "").split("/").pop();
+        return {
+          found: true,
+          matched_phone: `+1${d}`,
+          name: [node.firstName, node.lastName].filter(Boolean).join(" ").trim(),
+          email: node.email || "",
+          phone: node.phone || "",
+          orders_count: node.numberOfOrders != null ? String(node.numberOfOrders) : "",
+          amount_spent: node.amountSpent ? `${node.amountSpent.amount} ${node.amountSpent.currencyCode}` : "",
+          address: [a.address1, a.address2, a.city, a.provinceCode, a.zip].filter(Boolean).join(", "),
+          tags: (node.tags || []).join(", "),
+          created_at: node.createdAt ? String(node.createdAt).slice(0, 10) : "",
+          note: node.note || "",
+          admin_url: idNum ? `https://${SHOPIFY_DOMAIN}/admin/customers/${idNum}` : "",
+        };
+      }
+    } catch (err) {
+      console.warn("[capture_lead] recherche client Shopify échouée:", err.message);
+      logEvent("error", { where: "shopify_customer_lookup", message: err.message });
+      return { found: false, error: err.message };
+    }
+  }
+  return { found: false };
+}
+
 app.post("/capture_lead", async (req, res) => {
   const { toolCallId, args } = getVapiToolCall(req);
   // Numéro de l'afficheur (fourni par VAPI) : filet quand le modèle relit mal le numéro dicté.
@@ -1183,6 +1261,7 @@ app.post("/capture_lead", async (req, res) => {
       name,
       phone,
       caller_id: callerNumber || "",
+      address: (args.address || "").toString().trim(),
       email: (args.email || "").toString().trim(),
       project_type: (args.project_type || "").toString().trim(),
       budget: (args.budget || "").toString().trim(),
@@ -1220,6 +1299,14 @@ app.post("/capture_lead", async (req, res) => {
       timeline: lead.timeline || null,
       channel: lead.channel || null,
     });
+
+    // Enrichissement : compte client Shopify existant (nom, courriel, adresse, historique).
+    // On essaie le numéro dicté PUIS l'afficheur. Non bloquant.
+    lead.shopify = await lookupShopifyCustomerByPhone(phone, callerNumber);
+    if (lead.shopify?.found) {
+      logEvent("lead_shopify_match", { orders: lead.shopify.orders_count || null });
+      console.log(`[capture_lead] compte Shopify trouvé pour ${name} (${lead.shopify.orders_count} commande(s))`);
+    }
 
     let emailed = false;
     try {
@@ -1475,10 +1562,13 @@ async function leadFallbackAlert({ body, callId, callerNumber, textOut }) {
     .join("  |  ");
 
   logEvent("lead_fallback_alert", { call_id: callId, has_caller: !!callerNumber, keypad_entries: keypad.length });
+  const fbShopify = await lookupShopifyCustomerByPhone(keypad[keypad.length - 1], callerNumber);
   await sendLeadEmail({
     name: "LEAD À VÉRIFIER (Barry a confirmé sans enregistrer)",
     phone: keypad.length ? keypad[keypad.length - 1] : (callerNumber || "inconnu"),
     caller_id: callerNumber || "",
+    address: "",
+    shopify: fbShopify,
     project_type: "À confirmer d'après la transcription",
     notes: "Barry a dit au client que c'était noté, mais l'outil capture_lead n'a pas été appelé. Entrées clavier : " + (keypad.join(", ") || "aucune") + ". Derniers échanges : " + recent + " || Dernière réponse de Barry : " + String(textOut || "").slice(0, 300),
     channel: "voix (filet automatique)",

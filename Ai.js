@@ -271,8 +271,11 @@ async function fetchShopifyGraphQL(query, variables = {}) {
 // Ce helper va les chercher.
 
 function getVapiToolCall(req) {
-  const toolCall = req.body?.message?.toolCalls?.[0];
-  let args = toolCall?.function?.arguments ?? {};
+  // VAPI envoie `toolCalls` (format OpenAI : arguments sous `function`) et, dans ses
+  // messages plus récents, `toolCallList` (arguments à la racine). On accepte les deux.
+  const msg = req.body?.message || {};
+  const toolCall = msg.toolCalls?.[0] || msg.toolCallList?.[0] || null;
+  let args = toolCall?.function?.arguments ?? toolCall?.arguments ?? {};
   // Parfois VAPI envoie les arguments comme une chaîne JSON au lieu d'un objet — on parse
   if (typeof args === "string") {
     try { args = JSON.parse(args); } catch { args = {}; }
@@ -1172,11 +1175,22 @@ async function sendLeadEmail(lead) {
 
   // Envoie une copie du lead via un compte Resend donné, à un destinataire donné.
   async function postLead(apiKey, from, to) {
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to: [to], subject, html }),
-    });
+    // Délai 10 s : Resend ne doit jamais pouvoir bloquer le serveur indéfiniment.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    let r;
+    try {
+      r = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ from, to: [to], subject, html }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      throw new Error(err.name === "AbortError" ? `Resend timeout 10 s (${to})` : err.message);
+    } finally {
+      clearTimeout(timer);
+    }
     if (!r.ok) throw new Error(`Resend HTTP ${r.status}: ${await r.text()}`);
   }
 
@@ -1249,6 +1263,27 @@ async function lookupShopifyCustomerByPhone(...phones) {
   return { found: false };
 }
 
+// Livraison d'un lead en arrière-plan : enrichissement Shopify puis courriel, avec UNE reprise
+// après 5 s si l'envoi échoue. Ne bloque jamais la réponse à VAPI.
+async function deliverLeadInBackground(lead, phone, callerNumber) {
+  lead.shopify = await lookupShopifyCustomerByPhone(phone, callerNumber);
+  if (lead.shopify?.found) {
+    logEvent("lead_shopify_match", { orders: lead.shopify.orders_count || null });
+    console.log(`[capture_lead] compte Shopify trouvé pour ${lead.name} (${lead.shopify.orders_count} commande(s))`);
+  }
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await sendLeadEmail(lead);
+      console.log(`[capture_lead] Lead emailed: ${lead.name} / projet="${lead.project_type}" (essai ${attempt})`);
+      return;
+    } catch (mailErr) {
+      console.error(`[capture_lead] Email failed (essai ${attempt}):`, mailErr.message);
+      if (attempt === 2) logEvent("error", { where: "capture_lead_email", message: mailErr.message });
+      else await new Promise(r => setTimeout(r, 5000));
+    }
+  }
+}
+
 app.post("/capture_lead", async (req, res) => {
   const { toolCallId, args } = getVapiToolCall(req);
   // Numéro de l'afficheur (fourni par VAPI) : filet quand le modèle relit mal le numéro dicté.
@@ -1300,30 +1335,16 @@ app.post("/capture_lead", async (req, res) => {
       channel: lead.channel || null,
     });
 
-    // Enrichissement : compte client Shopify existant (nom, courriel, adresse, historique).
-    // On essaie le numéro dicté PUIS l'afficheur. Non bloquant.
-    lead.shopify = await lookupShopifyCustomerByPhone(phone, callerNumber);
-    if (lead.shopify?.found) {
-      logEvent("lead_shopify_match", { orders: lead.shopify.orders_count || null });
-      console.log(`[capture_lead] compte Shopify trouvé pour ${name} (${lead.shopify.orders_count} commande(s))`);
-    }
-
-    let emailed = false;
-    try {
-      await sendLeadEmail(lead);
-      emailed = true;
-      console.log(`[capture_lead] Lead emailed: ${name} / projet="${lead.project_type}"`);
-    } catch (mailErr) {
-      console.error("[capture_lead] Email failed:", mailErr.message);
-      logEvent("error", { where: "capture_lead_email", message: mailErr.message });
-    }
-
-    return res.json(vapiResult(toolCallId, {
+    // ⚡ On répond à VAPI TOUT DE SUITE (délai VAPI : 20 s). La recherche Shopify et
+    // l'envoi des courriels se font ensuite en arrière-plan, avec une reprise.
+    // (Avant le 2026-09-28, on attendait tout avant de répondre → « No result returned ».)
+    res.json(vapiResult(toolCallId, {
       ok: true,
       saved: true,
-      emailed,
       message: "Lead enregistré. Confirme au client qu'un conseiller va le rappeler bientôt, et remercie-le.",
     }));
+    deliverLeadInBackground(lead, phone, callerNumber).catch(e => console.error("[capture_lead] livraison arrière-plan:", e.message));
+    return;
   } catch (err) {
     console.error("[capture_lead] ERROR:", err);
     logEvent("error", { where: "capture_lead", message: err.message });
@@ -1541,6 +1562,43 @@ function lastUserText(msgs) {
   return "";
 }
 
+// Extraction des coordonnées d'une transcription par Claude Haiku (appel court, 12 s max).
+// Renvoie { is_callback_request, name, phone, address, project_type, timeline } ou null.
+async function extractLeadFromTranscript(transcript) {
+  if (!ANTHROPIC_API_KEY || !transcript) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: CUSTOM_LLM_MODEL,
+        max_tokens: 300,
+        temperature: 0,
+        system: "Tu extrais des coordonnées d'une transcription d'appel téléphonique (français ou anglais) pour une boutique de piscines. Réponds UNIQUEMENT par un objet JSON compact, sans texte autour.",
+        messages: [{
+          role: "user",
+          content: "Transcription (derniers échanges) :\n" + transcript + "\n\nRéponds avec ce JSON exact : {\"is_callback_request\": true, \"name\": \"\", \"phone\": \"\", \"address\": \"\", \"project_type\": \"\", \"timeline\": \"\"}\n"
+            + "- is_callback_request : true seulement si le client a demandé ou accepté qu'un conseiller le rappelle (soumission, estimé, rendez-vous, service à domicile). false si Barry a juste dit « c'est noté » à propos d'autre chose (ex. un modèle de produit).\n"
+            + "- name : le nom du client tel qu'il l'a dit ; \"\" si absent.\n- phone : dix chiffres si dictés ou tapés ; \"\" sinon.\n- address : adresse dictée ; \"\" sinon.\n- project_type : cinq mots maximum ; timeline : quand le client veut le service ; \"\" si absent.",
+        }],
+      }),
+    });
+    if (!r.ok) { console.warn("[lead-fallback] extraction HTTP", r.status); return null; }
+    const data = await r.json();
+    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+    const m = text.match(/\{[\s\S]*\}/);
+    return m ? JSON.parse(m[0]) : null;
+  } catch (err) {
+    console.warn("[lead-fallback] extraction échouée:", err.message);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Courriel de secours « lead à vérifier » : une seule fois par appel.
 const leadFallbackSent = new Set();
 async function leadFallbackAlert({ body, callId, callerNumber, textOut }) {
@@ -1555,25 +1613,38 @@ async function leadFallbackAlert({ body, callId, callerNumber, textOut }) {
     .filter(m => m.role === "user" && /Keypad Entry/i.test(String(m.content)))
     .map(m => String(m.content).replace(/\D/g, ""))
     .filter(Boolean);
-  const recent = msgs
+  const keypadPhone = keypad.filter(k => k.length === 10).pop() || keypad[keypad.length - 1] || "";
+  const turns = msgs
     .filter(m => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
-    .slice(-12)
-    .map(m => (m.role === "user" ? "CLIENT : " : "BARRY : ") + m.content.trim().slice(0, 220))
-    .join("  |  ");
+    .slice(-20)
+    .map(m => (m.role === "user" ? "CLIENT : " : "BARRY : ") + m.content.trim().slice(0, 300));
+  const transcript = turns.concat(["BARRY : " + String(textOut || "").trim().slice(0, 300)]).join("\n");
 
-  logEvent("lead_fallback_alert", { call_id: callId, has_caller: !!callerNumber, keypad_entries: keypad.length });
-  const fbShopify = await lookupShopifyCustomerByPhone(keypad[keypad.length - 1], callerNumber);
+  // Extraction par Haiku : est-ce vraiment une demande de rappel, et quelles coordonnées ont été dites ?
+  const ex = await extractLeadFromTranscript(transcript);
+  if (ex && ex.is_callback_request === false) {
+    logEvent("lead_fallback_skipped", { call_id: callId, reason: "pas une demande de rappel" });
+    console.log("[lead-fallback] « c'est noté » sans demande de rappel → pas de courriel (call=" + (callId || "?") + ")");
+    return;
+  }
+  const exPhone = String(ex?.phone || "").replace(/\D/g, "");
+  const phone = keypadPhone || (exPhone.length === 10 ? exPhone : "") || callerNumber || "inconnu";
+  const name = (ex?.name && String(ex.name).trim()) ? String(ex.name).trim() : "Nom non capté";
+
+  logEvent("lead_fallback_alert", { call_id: callId, has_caller: !!callerNumber, keypad_entries: keypad.length, extracted: !!ex });
+  const fbShopify = await lookupShopifyCustomerByPhone(phone, callerNumber);
   await sendLeadEmail({
-    name: "LEAD À VÉRIFIER (Barry a confirmé sans enregistrer)",
-    phone: keypad.length ? keypad[keypad.length - 1] : (callerNumber || "inconnu"),
+    name: name + " — LEAD À VÉRIFIER",
+    phone,
     caller_id: callerNumber || "",
-    address: "",
+    address: (ex?.address && String(ex.address).trim()) || "",
     shopify: fbShopify,
-    project_type: "À confirmer d'après la transcription",
-    notes: "Barry a dit au client que c'était noté, mais l'outil capture_lead n'a pas été appelé. Entrées clavier : " + (keypad.join(", ") || "aucune") + ". Derniers échanges : " + recent + " || Dernière réponse de Barry : " + String(textOut || "").slice(0, 300),
+    project_type: (ex?.project_type && String(ex.project_type).trim()) || "À confirmer d'après la transcription",
+    timeline: (ex?.timeline && String(ex.timeline).trim()) || "",
+    notes: "Barry a confirmé au client sans appeler capture_lead : coordonnées extraites de la transcription, à VÉRIFIER avant de rappeler. Entrées clavier : " + (keypad.join(", ") || "aucune") + ". Transcription : " + turns.slice(-10).join("  |  "),
     channel: "voix (filet automatique)",
   });
-  console.warn("[lead-fallback] courriel de secours envoyé (call=" + (callId || "?") + ")");
+  console.warn("[lead-fallback] courriel de secours envoyé (call=" + (callId || "?") + ", nom=" + name + ")");
 }
 let chatBodyKeysLogged = false;
 

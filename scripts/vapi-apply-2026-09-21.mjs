@@ -48,8 +48,11 @@ await step('tool capture_lead + address', async () => {
   const params = fn.parameters || { type: 'object', properties: {}, required: [] };
   const properties = { ...(params.properties || {}) };
   properties.address = { type: 'string', description: "Adresse où aurait lieu le projet (rue, ville, secteur), telle que dictée par le client. Facultatif." };
-  const r = await api('PATCH', `/tool/${tool.id}`, { function: { ...fn, parameters: { ...params, properties } } });
-  return `champs = ${Object.keys(r.function?.parameters?.properties || {}).join(', ')}`;
+  // ⚠️ Toujours renvoyer `server` avec `function` : un PATCH sans `server` EFFACE l'URL du tool
+  // (bug vécu le 21 sept : capture_lead sans URL → « No result returned », leads perdus).
+  const server = tool.server?.url ? tool.server : { url: 'https://vapi-production-0c30.up.railway.app/capture_lead', timeoutSeconds: 20 };
+  const r = await api('PATCH', `/tool/${tool.id}`, { function: { ...fn, parameters: { ...params, properties } }, server });
+  return `champs = ${Object.keys(r.function?.parameters?.properties || {}).join(', ')} | server = ${r.server?.url}`;
 });
 
 // 2. Remplacer les fichiers KB : téléverser les nouvelles versions

@@ -1544,10 +1544,11 @@ function looksLikeLeadConfirmation(text) {
   return /(c['’]est (bien )?not[ée]|je vais enregistrer vos coordonn|un conseiller va vous rappeler|conseiller vous rappellera|va vous rappeler bient|that['’]s noted|noted down|an advis[eo]r will call you back|will call you back soon|i['’]ve got (all )?that noted)/i.test(t);
 }
 
-// La conversation contient déjà un capture_lead (appel ou résultat) ?
+// La conversation contient déjà un capture_lead RÉUSSI ? (un appel dont le résultat est
+// « No result returned » ou une erreur ne compte pas : le filet de secours doit alors jouer.
+// Vécu du 21 au 28 sept 2026 : tool sans URL côté VAPI → 100 % d'échecs, et le secours se taisait.)
 function conversationHasLeadCapture(msgs) {
   for (const m of msgs || []) {
-    if (m.role === "assistant" && (m.tool_calls || []).some(tc => tc.function?.name === "capture_lead")) return true;
     if (m.role === "tool" && typeof m.content === "string" && /"saved"\s*:\s*true|Lead enregistré/i.test(m.content)) return true;
   }
   return false;

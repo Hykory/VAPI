@@ -37,7 +37,11 @@ const byPhone = new Map();
 for (const f of found) {
   const d = String(f.args.phone).replace(/\D/g, '').slice(-10);
   const prev = byPhone.get(d);
-  byPhone.set(d, { ...f, earlier: prev ? [...prev.earlier, prev.at] : [] });
+  // Fusion : le plus récent gagne, mais un champ vide est comblé par un appel précédent
+  // (ex. l'adresse dite au premier appel et pas au troisième).
+  const merged = { ...(prev?.args || {}) };
+  for (const [k, v] of Object.entries(f.args)) if (v != null && String(v).trim()) merged[k] = v;
+  byPhone.set(d, { ...f, args: merged, earlier: prev ? [...prev.earlier, prev.at] : [] });
 }
 const leads = [...byPhone.values()];
 console.log(`${found.length} capture_lead perdus dans ${calls.length} appels → ${leads.length} lead(s) unique(s) à récupérer${SEND ? '' : ' (DRY-RUN, ajoute --send pour envoyer)'}\n`);

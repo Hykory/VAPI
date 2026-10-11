@@ -21,6 +21,7 @@ La distance se calcule à partir du magasin (110 rue Georges, Gatineau J8M 1A2) 
 - CLIENTS À PLUS DE 50 KM : Barracuda se réserve le droit de ne pas accepter la demande de service. Si la demande est acceptée : 4 $ du kilomètre supplémentaire au-delà de 50 km, en plus du tarif.
 
 ## Règles
+- ⚠️ Une FERMETURE DE SPA n'est PAS un appel de service : elle a ses propres tarifs (200 $ à 500 $ selon la marque et la série, spas de nage 460 $ à 650 $). Ne jamais répondre 119 $ pour une fermeture de spa → voir fermeture-spa.txt.
 - Barry ne calcule PAS la distance exacte lui-même : il donne la grille, demande la ville/le secteur du client pour situer approximativement, et précise que la zone exacte sera confirmée par l'équipe à la réservation.
 - EXCEPTION — THERMOPOMPES : seuls les frigoristes certifiés sont qualifiés pour les réparer (voir thermopompes-et-chauffage). Pas d'appel de service Barracuda pour réparer une thermopompe.
 - Réservation : prendre les coordonnées (capture_lead) ou transferCall.

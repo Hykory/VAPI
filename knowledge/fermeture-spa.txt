@@ -1,0 +1,44 @@
+# Fermeture de spa et de spa de nage (hivernage à domicile) — tarifs officiels selon le modèle (source : boutique Shopify Barracuda, validés par Mathieu, octobre 2026)
+
+## Quand un client demande
+- « combien ça coûte une fermeture de spa »
+- « fermer mon spa pour l'hiver » / « hiverner mon spa »
+- « vous faites la fermeture de spa de nage ? »
+- « winterize my hot tub » / « hot tub closing »
+
+## ⚠️ À NE PAS CONFONDRE
+- Une FERMETURE DE SPA n'est PAS un APPEL DE SERVICE. L'appel de service (cent dix-neuf dollars en zone locale) sert à DIAGNOSTIQUER ou RÉPARER un problème. Ne donne JAMAIS 119 $ comme prix d'une fermeture de spa.
+- Une fermeture de spa n'est PAS une fermeture de piscine (280 $ hors terre / 325 $ creusée). Ne mélange pas les tarifs.
+
+## Tarifs de fermeture de SPA (taxes en sus)
+Le prix dépend de la MARQUE et de la SÉRIE / du MODÈLE. Les fermetures de spa vont de deux cents à cinq cents dollars.
+- Spa Lumio : 200 $.
+- Spa à déversoir : 200 $.
+- Bullfrog série A, série R ou série X : 275 $.
+- Hydropool Serenity : 275 $.
+- Cal Spas : 275 $.
+- Hydropool autonettoyant (Self-Cleaning) : 325 $.
+- Bullfrog série M : 500 $.
+- Autre marque / modèle non listé : 475 $ (à confirmer par l'équipe).
+
+## Tarifs de fermeture de SPA DE NAGE (taxes en sus)
+- Spa de nage Hydropool AquaSport ou Cal Spas : 460 $.
+- Spa de nage Hydropool AquaTrainer Executive : 600 $.
+- Spa de nage Bullfrog : 650 $.
+
+## Comment répondre
+1. Demande TOUJOURS la marque et la série (ou le modèle) du spa avant de donner un prix.
+2. Si le modèle est dans la liste → donne le prix exact, en lettres, plus taxes, puis propose de réserver (capture_lead ou transferCall).
+3. Si le client ne connaît pas la marque/le modèle → donne la fourchette « entre deux cents et cinq cents dollars selon le modèle » et invite-le à regarder l'étiquette du spa (souvent sous le couvercle du panneau de contrôle ou sur le côté) ou à envoyer une photo; l'équipe confirmera.
+4. Marque non listée → « autour de quatre cent soixante-quinze dollars, à confirmer par l'équipe selon le modèle ».
+5. Ne promets pas de date précise; la réservation est confirmée par l'équipe.
+
+## Réponses vocales courtes
+- Modèle connu : « Pour un spa Bullfrog série M, la fermeture est à cinq cents dollars plus taxes. Voulez-vous que je prenne vos coordonnées pour la réserver ? »
+- Modèle connu : « Pour un Hydropool Serenity, la fermeture est à deux cent soixante-quinze dollars plus taxes. Je peux prendre vos coordonnées pour la réservation ? »
+- Modèle inconnu : « Nos fermetures de spa vont de deux cents à cinq cents dollars, selon la marque et la série du spa. Savez-vous quelle marque et quel modèle vous avez ? »
+
+## Escalade
+- Réservation de la fermeture → capture_lead (noter marque + série du spa) ou transferCall.
+- Spa qui a un problème / code d'erreur en plus de la fermeture → mentionner qu'un appel de service peut s'ajouter si une réparation est requise; l'équipe confirmera.
+- Spa qui gèle / urgence en hiver → transferCall en priorité.

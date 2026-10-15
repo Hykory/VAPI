@@ -1335,6 +1335,9 @@ app.post("/capture_lead", async (req, res) => {
       channel: lead.channel || null,
     });
 
+    // Le lead est enregistré normalement → annule un éventuel courriel de secours en attente.
+    markLeadCaptured(req.body?.message?.call?.id || null);
+
     // ⚡ On répond à VAPI TOUT DE SUITE (délai VAPI : 20 s). La recherche Shopify et
     // l'envoi des courriels se font ensuite en arrière-plan, avec une reprise.
     // (Avant le 2026-09-28, on attendait tout avant de répondre → « No result returned ».)
@@ -1600,6 +1603,27 @@ async function extractLeadFromTranscript(transcript) {
   }
 }
 
+// Secours DIFFÉRÉ et ANNULABLE : Barry dit souvent « c'est noté » quelques secondes AVANT
+// d'appeler capture_lead. On attend 2 min ; si le vrai lead arrive entre-temps, pas de doublon.
+const leadFallbackTimers = new Map();   // clé d'appel → timer
+const leadCapturedCalls = new Set();    // appels où capture_lead a réussi
+const LEAD_FALLBACK_DELAY_MS = 120000;
+function scheduleLeadFallback(key, fn) {
+  if (!key || leadFallbackTimers.has(key) || leadCapturedCalls.has(key)) return;
+  leadFallbackTimers.set(key, setTimeout(() => {
+    leadFallbackTimers.delete(key);
+    if (leadCapturedCalls.has(key)) { console.log("[lead-fallback] annulé : lead enregistré entre-temps (" + key + ")"); return; }
+    fn().catch(e => console.error("[lead-fallback] échec:", e.message));
+  }, LEAD_FALLBACK_DELAY_MS));
+}
+function markLeadCaptured(key) {
+  if (!key) return;
+  leadCapturedCalls.add(key);
+  if (leadCapturedCalls.size > 1000) leadCapturedCalls.clear();
+  const t = leadFallbackTimers.get(key);
+  if (t) { clearTimeout(t); leadFallbackTimers.delete(key); console.log("[lead-fallback] secours annulé, lead enregistré normalement (" + key + ")"); }
+}
+
 // Courriel de secours « lead à vérifier » : une seule fois par appel.
 const leadFallbackSent = new Set();
 async function leadFallbackAlert({ body, callId, callerNumber, textOut }) {
@@ -1631,19 +1655,28 @@ async function leadFallbackAlert({ body, callId, callerNumber, textOut }) {
   const exPhone = String(ex?.phone || "").replace(/\D/g, "");
   const phone = keypadPhone || (exPhone.length === 10 ? exPhone : "") || callerNumber || "inconnu";
   const name = (ex?.name && String(ex.name).trim()) ? String(ex.name).trim() : "Nom non capté";
+  const gotSomething = name !== "Nom non capté" || !!keypadPhone || exPhone.length === 10;
+
+  // Courriel COURT : pas de transcription quand on a pu extraire les coordonnées.
+  // Seulement si rien n'a été capté, un court extrait des paroles du client (pour retrouver le contexte).
+  let notes = "Coordonnées prises automatiquement dans la conversation (Barry n'a pas enregistré le lead lui-même) : à confirmer avec le client au rappel.";
+  if (!gotSomething) {
+    const clientSaid = turns.filter(t => t.startsWith("CLIENT : ")).slice(-5).map(t => t.slice(9).slice(0, 90)).join(" / ");
+    notes += " Extrait des paroles du client : " + (clientSaid || "(rien de capté)");
+  }
 
   logEvent("lead_fallback_alert", { call_id: callId, has_caller: !!callerNumber, keypad_entries: keypad.length, extracted: !!ex });
   const fbShopify = await lookupShopifyCustomerByPhone(phone, callerNumber);
   await sendLeadEmail({
-    name: name + " — LEAD À VÉRIFIER",
+    name: name + " (à confirmer)",
     phone,
     caller_id: callerNumber || "",
     address: (ex?.address && String(ex.address).trim()) || "",
     shopify: fbShopify,
-    project_type: (ex?.project_type && String(ex.project_type).trim()) || "À confirmer d'après la transcription",
+    project_type: (ex?.project_type && String(ex.project_type).trim()) || "",
     timeline: (ex?.timeline && String(ex.timeline).trim()) || "",
-    notes: "Barry a confirmé au client sans appeler capture_lead : coordonnées extraites de la transcription, à VÉRIFIER avant de rappeler. Entrées clavier : " + (keypad.join(", ") || "aucune") + ". Transcription : " + turns.slice(-10).join("  |  "),
-    channel: "voix (filet automatique)",
+    notes,
+    channel: "voix",
   });
   console.warn("[lead-fallback] courriel de secours envoyé (call=" + (callId || "?") + ", nom=" + name + ")");
 }
@@ -1835,7 +1868,9 @@ app.post("/chat/completions", async (req, res) => {
     }
     // ② « c'est noté, on vous rappelle » sans capture_lead → courriel de secours à l'équipe.
     if (!isTextChannel && !toolNamesEmitted.includes("capture_lead") && looksLikeLeadConfirmation(textOut) && !conversationHasLeadCapture(body.messages)) {
-      leadFallbackAlert({ body, callId, callerNumber, textOut }).catch(e => console.error("[lead-fallback] échec:", e.message));
+      const firstUser = (body.messages || []).find(m => m.role === "user");
+      const key = callId || ((firstUser ? String(firstUser.content) : "").slice(0, 80) + (callerNumber || ""));
+      scheduleLeadFallback(key, () => leadFallbackAlert({ body, callId, callerNumber, textOut }));
     }
 
     sendChunk({}, finish);

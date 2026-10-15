@@ -1544,7 +1544,65 @@ function looksLikeFakeTransfer(text) {
 // Le texte confirme un rappel / une prise de coordonnées ?
 function looksLikeLeadConfirmation(text) {
   const t = (text || "").toLowerCase();
+  // Une phrase qui pose encore une question (« …va vous rappeler. C'est quoi votre nom ? »)
+  // n'est pas une confirmation finale : la collecte est en cours.
+  if (t.includes("?")) return false;
   return /(c['’]est (bien )?not[ée]|je vais enregistrer vos coordonn|un conseiller va vous rappeler|conseiller vous rappellera|va vous rappeler bient|that['’]s noted|noted down|an advis[eo]r will call you back|will call you back soon|i['’]ve got (all )?that noted)/i.test(t);
+}
+
+// ── CAPTURE FORCÉE : Barry dit « c'est noté » sans appeler capture_lead ──
+// Depuis le flux « on vous rappelle au numéro d'où vous appelez ? » (11 oct), il n'y a plus
+// d'entrée clavier pour déclencher l'outil et Haiku l'oublie (3 leads sur 5 la semaine du 13 oct).
+// On relance Claude sur la même conversation en l'OBLIGEANT à produire l'appel capture_lead
+// (tool_choice), puis on l'injecte dans la réponse : VAPI exécute l'outil normalement.
+function phoneSignal(msgs, callerNumber) {
+  const keypad = (msgs || []).filter(m => m.role === "user" && /Keypad Entry/i.test(String(m.content))).map(m => String(m.content).replace(/\D/g, "")).filter(k => k.length === 10).pop();
+  if (keypad) return keypad;
+  const userDigits = (msgs || []).filter(m => m.role === "user" && typeof m.content === "string").map(m => (m.content.match(/\d[\d\s\-.]{8,}\d/g) || []).map(s => s.replace(/\D/g, "")).find(d => d.length === 10)).find(Boolean);
+  if (userDigits) return userDigits;
+  const asked = (msgs || []).some(m => m.role === "assistant" && typeof m.content === "string" && /num[ée]ro d['’]o[uù] vous appelez|number you['’]re calling from/i.test(m.content));
+  const caller = String(callerNumber || "").replace(/\D/g, "");
+  if (asked && caller.length === 11 && caller.startsWith("1")) return caller.slice(1);
+  if (asked && caller.length === 10) return caller;
+  return null;
+}
+async function forceCaptureLeadToolCall({ system, messages, tools, textOut, phone }) {
+  if (!ANTHROPIC_API_KEY) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: CUSTOM_LLM_MODEL,
+        max_tokens: 400,
+        temperature: 0,
+        system,
+        tools,
+        tool_choice: { type: "tool", name: "capture_lead" },
+        messages: [
+          ...messages,
+          { role: "assistant", content: [{ type: "text", text: textOut || "Parfait, c'est noté." }] },
+          { role: "user", content: "Enregistre maintenant ce lead avec capture_lead, en reprenant EXACTEMENT les coordonnées que le client a données dans la conversation (nom, numéro de téléphone, adresse, type de projet, échéance, notes utiles). Numéro de téléphone à utiliser si le client a accepté d'être rappelé au numéro d'où il appelle : " + (phone || "(inconnu)") + "." },
+        ],
+      }),
+    });
+    if (!r.ok) { console.warn("[auto-capture] Anthropic HTTP", r.status, (await r.text()).slice(0, 200)); return null; }
+    const data = await r.json();
+    const tu = (data.content || []).find(b => b.type === "tool_use" && b.name === "capture_lead");
+    if (!tu) return null;
+    const args = { ...(tu.input || {}) };
+    if (!String(args.phone || "").replace(/\D/g, "").length && phone) args.phone = phone;
+    if (!args.channel) args.channel = "voix";
+    return args;
+  } catch (err) {
+    console.warn("[auto-capture] échec:", err.message);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // La conversation contient déjà un capture_lead RÉUSSI ? (un appel dont le résultat est
@@ -1590,11 +1648,12 @@ async function extractLeadFromTranscript(transcript) {
         }],
       }),
     });
-    if (!r.ok) { console.warn("[lead-fallback] extraction HTTP", r.status); return null; }
+    if (!r.ok) { console.warn("[lead-fallback] extraction HTTP", r.status, (await r.text()).slice(0, 200)); return null; }
     const data = await r.json();
-    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+    const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("").replace(/```(?:json)?/gi, "");
     const m = text.match(/\{[\s\S]*\}/);
-    return m ? JSON.parse(m[0]) : null;
+    if (!m) { console.warn("[lead-fallback] extraction sans JSON:", text.slice(0, 120)); return null; }
+    try { return JSON.parse(m[0]); } catch (e) { console.warn("[lead-fallback] JSON invalide:", e.message); return null; }
   } catch (err) {
     console.warn("[lead-fallback] extraction échouée:", err.message);
     return null;
@@ -1609,7 +1668,12 @@ const leadFallbackTimers = new Map();   // clé d'appel → timer
 const leadCapturedCalls = new Set();    // appels où capture_lead a réussi
 const LEAD_FALLBACK_DELAY_MS = 120000;
 function scheduleLeadFallback(key, fn) {
-  if (!key || leadFallbackTimers.has(key) || leadCapturedCalls.has(key)) return;
+  if (!key || leadCapturedCalls.has(key)) return;
+  // Un nouveau déclenchement REMPLACE le précédent : on repart le délai et, surtout, le
+  // secours utilisera l'instantané le plus récent de la conversation (nom, adresse…).
+  // (Vécu 14 oct : premier « va vous rappeler » à 45 s, avant le nom → « Nom non capté ».)
+  const prev = leadFallbackTimers.get(key);
+  if (prev) clearTimeout(prev);
   leadFallbackTimers.set(key, setTimeout(() => {
     leadFallbackTimers.delete(key);
     if (leadCapturedCalls.has(key)) { console.log("[lead-fallback] annulé : lead enregistré entre-temps (" + key + ")"); return; }
@@ -1699,7 +1763,9 @@ app.post("/chat/completions", async (req, res) => {
   const callInfo = body.call || body.metadata?.call || null;
   const callerNumber = callInfo?.customer?.number || body.customer?.number || null;
   const callId = callInfo?.id || null;
-  const isTextChannel = /\[CANAL: (SMS|CHAT)/i.test(lastUserText(body.messages));
+  // Canal écrit (SMS, clavardage web) : le marqueur n'est parfois que sur le PREMIER message
+  // de la session → on regarde TOUS les messages client. Le clavardage web dit « CLAVARDAGE WEB ».
+  const isTextChannel = (body.messages || []).some(m => m.role === "user" && typeof m.content === "string" && /\[CANAL: ?(SMS|CHAT|CLAVARDAGE|WEB)/i.test(m.content));
   if (!chatBodyKeysLogged) {
     chatBodyKeysLogged = true;
     console.log("[custom-llm] body keys:", Object.keys(body).join(","), "| call présent:", !!callInfo, "| customer:", !!callerNumber);
@@ -1866,11 +1932,32 @@ app.post("/chat/completions", async (req, res) => {
         console.warn("[custom-llm] transfert annoncé sans tool → tool transfer_call_to_Human injecté");
       }
     }
-    // ② « c'est noté, on vous rappelle » sans capture_lead → courriel de secours à l'équipe.
-    if (!isTextChannel && !toolNamesEmitted.includes("capture_lead") && looksLikeLeadConfirmation(textOut) && !conversationHasLeadCapture(body.messages)) {
+    // ② « c'est noté, on vous rappelle » sans capture_lead.
+    if (!toolNamesEmitted.includes("capture_lead") && looksLikeLeadConfirmation(textOut) && !conversationHasLeadCapture(body.messages)) {
       const firstUser = (body.messages || []).find(m => m.role === "user");
       const key = callId || ((firstUser ? String(firstUser.content) : "").slice(0, 80) + (callerNumber || ""));
-      scheduleLeadFallback(key, () => leadFallbackAlert({ body, callId, callerNumber, textOut }));
+      const hasCaptureTool = (body.tools || []).some(t => t.function?.name === "capture_lead");
+      const phone = phoneSignal(body.messages, callerNumber);
+      let injected = false;
+      // ②a — on a un numéro : on FORCE l'appel de capture_lead et on l'injecte dans la réponse.
+      if (hasCaptureTool && phone) {
+        const args = await forceCaptureLeadToolCall({ system, messages, tools, textOut, phone });
+        if (args && args.name) {
+          toolCounter += 1;
+          sendChunk({ tool_calls: [{
+            index: toolCounter, id: "call_auto_capture_" + Date.now(), type: "function",
+            function: { name: "capture_lead", arguments: JSON.stringify(args) },
+          }] });
+          finish = "tool_calls";
+          injected = true;
+          logEvent("auto_capture_injected", { call_id: callId, has_address: !!args.address });
+          console.warn("[custom-llm] « c'est noté » sans capture_lead → appel capture_lead injecté (" + (args.name || "?") + ")");
+        }
+      }
+      // ②b — sinon (pas de numéro, ou échec) : courriel de secours différé, hors canaux écrits.
+      if (!injected && !isTextChannel) {
+        scheduleLeadFallback(key, () => leadFallbackAlert({ body, callId, callerNumber, textOut }));
+      }
     }
 
     sendChunk({}, finish);

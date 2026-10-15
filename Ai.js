@@ -1920,12 +1920,14 @@ app.post("/chat/completions", async (req, res) => {
     let finish = mapFinishReason(stopReason);
     if (!isTextChannel && toolNamesEmitted.length === 0) {
       // ① « Un instant, je vous transfère » sans tool → on injecte le tool de transfert.
-      const hasTransferTool = (body.tools || []).some(t => t.function?.name === "transfer_call_to_Human");
-      if (hasTransferTool && looksLikeFakeTransfer(textOut)) {
+      // L'assistant EN utilise « transfer_call_to_Human_EN » (annonces en anglais, créé le 11 oct) :
+      // on injecte le tool de transfert sous le nom réellement disponible dans cet assistant.
+      const transferToolName = ["transfer_call_to_Human", "transfer_call_to_Human_EN"].find(n => (body.tools || []).some(t => t.function?.name === n));
+      if (transferToolName && looksLikeFakeTransfer(textOut)) {
         toolCounter += 1;
         sendChunk({ tool_calls: [{
           index: toolCounter, id: "call_auto_transfer_" + Date.now(), type: "function",
-          function: { name: "transfer_call_to_Human", arguments: JSON.stringify({ destination: TRANSFER_HUMAN_NUMBER }) },
+          function: { name: transferToolName, arguments: JSON.stringify({ destination: TRANSFER_HUMAN_NUMBER }) },
         }] });
         finish = "tool_calls";
         logEvent("auto_transfer_injected", { text: textOut.slice(0, 160) });

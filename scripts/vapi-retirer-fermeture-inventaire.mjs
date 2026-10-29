@@ -27,13 +27,15 @@ const PLAN = [
 for (const p of PLAN) if (!fs.existsSync(path.join(REPO, p.file))) { console.error('Fichier manquant :', p.file, '— lancer depuis la racine du repo'); process.exit(2); }
 for (const p of PLAN) {
   const content = read(p.file);
-  if (/inventaire|inventory|28 octobre|October 28/i.test(content)) { console.log(`ECHEC ${p.k} — le fichier ${p.file} contient encore la fermeture, abandon`); continue; }
+  // Garde-fou précis : la FERMETURE d'inventaire, pas le mot « inventaire » (la règle de stock dit « inventaire non suivi »).
+  const CLOSURE = /FERMETURE EXCEPTIONNELLE|SPECIAL CLOSURE|28 octobre|October 28|vingt-huit octobre|twenty-eighth|pour l'inventaire|for inventory/i;
+  if (CLOSURE.test(content)) { console.log(`ECHEC ${p.k} — le fichier ${p.file} contient encore la fermeture, abandon`); continue; }
   try {
     const a = await api('GET', `/assistant/${p.id}`);
     const body = { model: { ...a.model, messages: [{ role: 'system', content }] } };
     if (p.firstMessage) body.firstMessage = p.firstMessage;
     const r = await api('PATCH', `/assistant/${p.id}`, body);
-    const still = /inventaire|inventory|28 octobre|October 28/i.test((r.model?.messages?.[0]?.content || '') + ' ' + (r.firstMessage || ''));
+    const still = CLOSURE.test((r.model?.messages?.[0]?.content || '') + ' ' + (r.firstMessage || ''));
     console.log(`OK    ${p.k} — prompt ${r.model?.messages?.[0]?.content?.length} chars${p.firstMessage ? ` | premier message « ${r.firstMessage} »` : ''} | fermeture ${still ? 'ENCORE PRÉSENTE ✘' : 'retirée ✔'}`);
   } catch (e) { console.log(`ECHEC ${p.k} — ${e.message}`); }
 }
